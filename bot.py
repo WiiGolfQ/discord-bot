@@ -179,10 +179,10 @@ async def forfeit(ctx):
         
         match = res.json()
         
-        if discord_id == match['player_1']['discord_id']:
+        if discord_id == match['p1']['discord_id']:
             winner = 2
             loser = 1
-        elif discord_id == match['player_2']['discord_id']:
+        elif discord_id == match['p2']['discord_id']:
             winner = 1
             loser = 2
         else:
@@ -207,7 +207,7 @@ async def forfeit(ctx):
                 
             match = res.json()
             
-            await message.edit(f"{match[f'player_{loser}']['username']} has forfeited. Closing match...", view=None)
+            await message.edit(f"{match[f'p{loser}']['username']} has forfeited. Closing match...", view=None)
             
             thread = bot.get_channel(ctx.channel.id)
             await thread.edit(archived=True, locked=True)
@@ -222,9 +222,9 @@ async def forfeit(ctx):
         
 async def create_new_match(match):    
     channel = bot.get_channel(1199197176740454441)
-    message = await channel.send(f"Match #{match['match_id']}: {match['player_1']['username']} vs. {match['player_2']['username']}")
+    message = await channel.send(f"Match #{match['match_id']}: {match['p1']['username']} vs. {match['p2']['username']}")
     thread = await message.create_thread(name=match['match_id'], auto_archive_duration=1440)
-    await thread.send(f"<@{match['player_1']['discord_id']}> <@{match['player_2']['discord_id']}> Your {match['game']['game_name']} match is ready!")   
+    await thread.send(f"<@{match['p1']['discord_id']}> <@{match['p2']['discord_id']}> Your {match['game']['game_name']} match is ready!")   
 
     found_1 = await check_live(thread, match, 1)
     found_2 = await check_live(thread, match, 2)
@@ -233,7 +233,7 @@ async def create_new_match(match):
 
 async def check_live(channel, match, player):
     
-    yt_username = match[f'player_{player}']['yt_username']
+    yt_username = match[f'p{player}']['yt_username'] # player = 1 or 2
     
     url = f"https://www.youtube.com/@{yt_username}/live"
     
@@ -245,12 +245,15 @@ async def check_live(channel, match, player):
         
         soup = BeautifulSoup(res.text, 'html.parser')
                 
-        # this start date will appear on live broadcasts
+        # the url shows the current livestream if you're streaming
+        # or your vods if you're not streaming
+        # we're looking for this meta element to see if you are streaming
+        # and also keep it for later since we need the start date
         start_time_el = soup.find('meta', {'itemprop': 'startDate'})
         print(start_time_el)
                                 
         if start_time_el is None: # if they are not live
-            await channel.send(f"{match[f'player_{player}']['username']} is not live on YouTube")
+            await channel.send(f"{match[f'p{player}']['username']} is not live on YouTube")
             return False
                 
         video_id = soup.find('meta', {'itemprop': 'identifier'})['content']
@@ -266,18 +269,18 @@ async def check_live(channel, match, player):
         res = requests.put(
             API_URL + f"/match/{channel.name}/", 
             json={
-                f"player_{player}_video_url": video_url,
+                f"p{player}_video_url": video_url,
             } 
         )
         
         if not res.ok:
             raise Exception(res.text)
         
-        await channel.send(f"{match[f'player_{player}']['username']} is live on YouTube. Their video URL is {video_url}")
+        await channel.send(f"{match[f'p{player}']['username']} is live on YouTube. Their video URL is {video_url}")
         return True
         
     except Exception as e:
-        await channel.send(f"Failed to check if {match[f'player_{player}']['username']} is live: {e}")
+        await channel.send(f"Failed to check if {match[f'p{player}']['username']} is live: {e}")
         return False
         
     
