@@ -34,25 +34,24 @@ active_matches = []
 class QueueView(discord.ui.View):
     
     def __init__(self, game):
-        super().__init__()
-        self.game = game
+        super().__init__(timeout=30)
+        if game:
+            self.game_id = game['game_id']
+            self.game_name = game['game_name']
+        else:
+            self.game_id = 0
+            self.game_name = None
     
-    @discord.ui.button(label="Join", style=discord.ButtonStyle.success)
-    @discord.ui.button(label="Leave", style=discord.ButtonStyle.danger)
+    @discord.ui.button(emoji="⛳", style=discord.ButtonStyle.secondary)
     async def button_callback(self, button, interaction):
         
         await interaction.response.defer(ephemeral=True)
-                
-        if button.label == "Join":
-            game_id = self.game["game_id"]
-        else:
-            game_id = 0
         
         try:
                
             # add the user to the game's queue
             res = requests.get(
-                API_URL + f"/queue/{game_id}/{interaction.user.id}"
+                API_URL + f"/queue/{self.game_id}/{interaction.user.id}"
             )
             
             if not res.ok:
@@ -63,11 +62,15 @@ class QueueView(discord.ui.View):
                         
             for match in new_matches:
                 await create_new_match(match)
-                                
-            await interaction.followup.send(f"Joined {self.game['game_name']} queue", ephemeral=True)
+             
+            if self.game_name:
+                if len(new_matches) == 0:
+                    await interaction.followup.send(f"Joined {self.game_name} queue", ephemeral=True) 
+            else:                      
+                await interaction.followup.send(f"Left queue", ephemeral=True)
         
         except Exception as e:
-            await interaction.followup.send(f"Failed to join {self.game['game_name']} queue: {e}", ephemeral=True)
+            await interaction.followup.send(f"Failed to join {self.game_name} queue: {e}", ephemeral=True)
             # raise e
     
 class AreYouSureView(discord.ui.View):
@@ -116,6 +119,9 @@ async def create_queues(ctx):
     
     for game in games:
         await channel.send(f"{game['game_name']} queue", view=QueueView(game))
+        
+    # also send a leave queue
+    await channel.send("Leave queue", view=QueueView(None))
         
     await ctx.respond("Queues created", ephemeral=True)
     
