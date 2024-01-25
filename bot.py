@@ -2,7 +2,6 @@ import discord
 import os
 import logging
 import requests
-import googleapiclient.discovery
 from datetime import datetime, timezone
 
 from dotenv import load_dotenv
@@ -22,13 +21,6 @@ API_URL = os.environ.get("WGL_API_URL")
 
 GUILD_ID = int(os.environ.get("GUILD_ID"))
 QUEUE_CHANNEL_ID = int(os.environ.get("QUEUE_CHANNEL_ID"))
-
-
-YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY")
-
-youtube = googleapiclient.discovery.build(
-    "youtube", "v3", developerKey = YOUTUBE_API_KEY)
-
 
 
 
