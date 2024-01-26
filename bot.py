@@ -1,8 +1,10 @@
-import discord
 import os
 import logging
 import requests
+import json
 from datetime import datetime, timezone
+
+import discord
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -203,7 +205,8 @@ async def forfeit(ctx):
             )
                             
             if not res.ok:
-                raise Exception(res.text)
+                raise Exception(res.json()['detail'])
+
                 
             match = res.json()
             
@@ -219,19 +222,138 @@ async def forfeit(ctx):
     except Exception as e:
         await ctx.respond(f"Failed to forfeit match: {e}", ephemeral=True)
         return
+        # if res:
+        #     soup = BeautifulSoup(res.text, 'html.parser')
+        #     await ctx.respond(f"Failed to forfeit match: {soup.find('body').text[:1950]}", ephemeral=True)
+        # else:
+        #     await ctx.respond(f"Failed to forfeit match: {e}", ephemeral=True)
         
-async def create_new_match(match):    
+async def create_new_match(match):
+    
+    active_matches.append(match)
+        
     channel = bot.get_channel(1199197176740454441)
     message = await channel.send(f"Match #{match['match_id']}: {match['p1']['username']} vs. {match['p2']['username']}")
     thread = await message.create_thread(name=match['match_id'], auto_archive_duration=1440)
-    await thread.send(f"<@{match['p1']['discord_id']}> <@{match['p2']['discord_id']}> Your {match['game']['game_name']} match is ready!")   
+    await thread.send(f"<@{match['p1']['discord_id']}> <@{match['p2']['discord_id']}> Your {match['game']['game_name']} match is ready. Your current elos are **{match['p1_mu_before']}** and **{match['p2_mu_before']}** respectively.")   
 
     await send_predictions(thread, match)
-
-    found_1 = await check_live(thread, match, 1)
-    found_2 = await check_live(thread, match, 2)
     
+    await live_procedure(thread, match)
 
+@bot.slash_command(guild_ids=[GUILD_ID])
+async def live(ctx):
+    await ctx.defer()
+    
+    #check if you're in a thread
+    try:
+        parent = ctx.channel.parent
+    except:
+        await ctx.respond("This command can only be used in a match thread", ephemeral=True)
+        return
+    
+    # get the match by match_id
+    match = next((m for m in active_matches if m['match_id'] == ctx.channel.name), None)    
+    
+    if match is None:
+        await ctx.respond("This match is not active", ephemeral=True)
+        return
+    
+    if (match['status'] != "Waiting for livestreams"):
+        await ctx.respond("Livestreams already found", ephemeral=True)
+        return
+    
+    await live_procedure(ctx.channel, None)
+    
+async def live_procedure(thread, match):
+    
+    is_p1_live = await check_live(thread, match, 1)
+    is_p2_live = await check_live(thread, match, 2)
+    
+    if is_p1_live and is_p2_live:
+        await ongoing_procedure(thread, match)
+    else:
+        await thread.send("Both players are not live on YouTube. Use **/live** to check again. Use **/youtube** to change your YouTube username. **/cancel** is also available while both livestreams are not detected.")
+
+async def ongoing_procedure(thread, match):
+    
+    match['status'] = "Ongoing"
+        
+    try:
+        res = requests.put(
+            API_URL + f"/match/{thread.name}/", 
+            json=match  
+        )
+        
+        if not res.ok:
+            raise Exception(res.text)
+        
+        
+        await thread.send("This match is now ongoing. Coordinate with your opponent to start your speedruns at approximately the same time, then after finishing use **/retime** or **/dnf** to report your score.\n## GLHF!")
+        
+    except Exception as e:
+        await thread.send(f"Failed to update match status: {e}")
+        print(f"Exception in ongoing_procedure: {e}")  # Add this line
+        return
+    
+@bot.slash_command(guild_ids=[GUILD_ID])
+async def retime(ctx, start, end, fps): # start and end are youtube debug infos
+    
+    fps = int(fps)
+
+    if not (fps == 30 or fps == 60):
+        await ctx.respond("FPS must be 30 or 60", ephemeral=True)
+        return
+    
+    match_id = int(ctx.channel.name)
+    match = next((m for m in active_matches if m['match_id'] == match_id), None)
+    
+    # check if we're in a thread
+    try:
+        parent = ctx.channel.parent
+    except:
+        await ctx.respond("This command can only be used in a match thread", ephemeral=True)
+        return
+    
+    # check if the player is playing in the match
+    if ctx.author.id == match['p1']['discord_id']:
+        player = 1
+    elif ctx.author.id == match['p2']['discord_id']:
+        player = 2
+    else:
+        await ctx.respond("You are not playing in this match", ephemeral=True)
+        return
+        
+    # check if match is ongoing
+    if match['status'] != "Ongoing":
+        await ctx.respond("This match is not ongoing", ephemeral=True)
+        return
+    
+    # make sure it's json
+    try:
+        start = json.loads(start)
+        end = json.loads(end)
+    except:
+        await ctx.respond("Invalid start or end time", ephemeral=True)
+        return
+        
+    # make sure the json has the 'vct' key (the current video duration)
+    if start['vct'] is None or end['vct'] is None:
+        await ctx.respond("Invalid start or end time", ephemeral=True)
+        return
+    
+    # get the start and end times in milliseconds (it's initially a string)
+    start_ms = int(float(start['vct']) * 1000)
+    end_ms = int(float(end['vct']) * 1000)
+    
+    
+    # find time between start and end
+    score = end_ms - start_ms
+    # round to the start of the nearest frame
+    score = int(score - (score % (1000 / fps) ) + 0.5)
+    
+    await ctx.respond(f"Your score is {score}ms")
+            
 
 async def check_live(channel, match, player):
     
@@ -276,7 +398,7 @@ async def check_live(channel, match, player):
         if not res.ok:
             raise Exception(res.text)
         
-        await channel.send(f"{match[f'p{player}']['username']} is live on YouTube. Their video URL is {video_url}")
+        await channel.send(f"{match[f'p{player}']['username']} is live on YouTube at {video_url}")
         return True
         
     except Exception as e:
@@ -301,6 +423,8 @@ async def send_predictions(thread, match):
     for key, value in elo_predictions.items():
         new_elos[key] = [item[0] for item in value]
         deltas[key] = [item[1] for item in value]
+        
+    # TODO: make this into a table somehow. This is way too long and ugly 
 
     message = f"## Predictions\n"
     message += f"The math gods give {match['p1']['username']} a **{p1_win_prob}** win probability, likewise giving {match['p2']['username']} a **{p2_win_prob}** win probability."
