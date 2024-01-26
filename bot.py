@@ -162,7 +162,9 @@ async def forfeit(ctx):
     discord_id = ctx.author.id
     
     # check if we are in a thread
-    if not ctx.channel.parent:
+    try: 
+        parent = ctx.channel.parent
+    except:
         await ctx.respond("This command can only be used in a match thread", ephemeral=True)
         return
     
@@ -224,6 +226,8 @@ async def create_new_match(match):
     thread = await message.create_thread(name=match['match_id'], auto_archive_duration=1440)
     await thread.send(f"<@{match['p1']['discord_id']}> <@{match['p2']['discord_id']}> Your {match['game']['game_name']} match is ready!")   
 
+    await send_predictions(thread, match)
+
     found_1 = await check_live(thread, match, 1)
     found_2 = await check_live(thread, match, 2)
     
@@ -248,14 +252,12 @@ async def check_live(channel, match, player):
         # we're looking for this meta element to see if you are streaming
         # and also keep it for later since we need the start date
         start_time_el = soup.find('meta', {'itemprop': 'startDate'})
-        print(start_time_el)
                                 
         if start_time_el is None: # if they are not live
             await channel.send(f"{match[f'p{player}']['username']} is not live on YouTube")
             return False
                 
         video_id = soup.find('meta', {'itemprop': 'identifier'})['content']
-        print(video_id)
         
         # calculate number of seconds to include in url
         start_time = datetime.fromisoformat(start_time_el['content'])
@@ -280,9 +282,37 @@ async def check_live(channel, match, player):
     except Exception as e:
         await channel.send(f"Failed to check if {match[f'p{player}']['username']} is live: {e}")
         return False
+
         
+async def send_predictions(thread, match):
     
-        
+    def float_to_percent(value):
+        return f"{value * 100:.1f}%"
+    
+    elo_predictions = match['predictions']['elo']
+    
+    p1_win_prob = match['predictions']['p1_win_prob']
+    p2_win_prob = float_to_percent(1 - p1_win_prob)
+    p1_win_prob = float_to_percent(p1_win_prob)
+    
+    new_elos = {}
+    deltas = {}
+             
+    for key, value in elo_predictions.items():
+        new_elos[key] = [item[0] for item in value]
+        deltas[key] = [item[1] for item in value]
+
+    message = f"## Predictions\n"
+    message += f"The math gods give {match['p1']['username']} a **{p1_win_prob}** win probability, likewise giving {match['p2']['username']} a **{p2_win_prob}** win probability."
+    message += "\n\n"
+    message += f"If {match['p1']['username']} wins, your new elos will be **{new_elos['1'][0]} ({deltas['1'][0]})** and **{new_elos['1'][1]} ({deltas['1'][1]})** respectively."
+    message += "\n"
+    message += f"If {match['p2']['username']} wins, your new elos will be **{new_elos['2'][0]} ({deltas['2'][0]})** and **{new_elos['2'][1]} ({deltas['2'][1]})** respectively."
+    message += "\n"
+    message += f"In the event of a draw, your new elos will be **{new_elos['D'][0]} ({deltas['D'][0]})** and **{new_elos['D'][1]} ({deltas['D'][1]})** respectively."
+    
+
+    await thread.send(message)
         
         
     
