@@ -290,7 +290,7 @@ async def live_procedure(match):
     if is_p1_live and is_p2_live:
         await ongoing_procedure(match)
     else:
-        await thread.send("Both players are not live on YouTube. Use **/live** to check again. Use **/youtube** to change your YouTube username. **/cancel** is also available while both livestreams are not detected.")
+        await thread.send("## Both players are not live on YouTube.\nUse **/live** to check again. Use **/youtube** to change your YouTube username. **/cancel** is also available while both livestreams are not detected.")
 
 async def ongoing_procedure(match):
     
@@ -307,7 +307,7 @@ async def ongoing_procedure(match):
         if not res.ok:
             raise Exception(res.text)
         
-        await thread.send("This match is now ongoing. Coordinate with your opponent to start your speedruns at approximately the same time, then after finishing use **/retime** or **/dnf** to report your score.\n## GLHF!")
+        await thread.send("## This match is now ongoing.\nCoordinate with your opponent to start your speedruns at approximately the same time, then after finishing use **/retime** or **/dnf** to report your score.\n## GLHF!")
         
     except Exception as e:
         await thread.send(f"Failed to update match status: {e}")
@@ -394,7 +394,7 @@ async def report_score(match, player, score):
         await thread.send(f"Failed to report score: {e}")
         print(f"Exception in report_score: {e}")
     
-    await thread.send(f"{match[f'p{player}']['username']} has reported their score as {score}")
+    await thread.send(f"{match[f'p{player}']['username']} has reported a score of {score}")
     
     if match['p1_score'] and match['p2_score']:
         await agree_procedure(match)
@@ -403,7 +403,7 @@ async def agree_procedure(match):
     
     # TODO: temp
     thread = bot.get_channel(match['discord_thread_id'])
-    await thread.send("Both players have reported their scores. Use **/agree** to confirm the outcome of the match, or **/disagree** to dispute the outcome.")
+    await thread.send("## Both players have reported scores.\nUse **/agree** to confirm the outcome of the match, or **/disagree** to dispute the outcome.")
     
     
            
