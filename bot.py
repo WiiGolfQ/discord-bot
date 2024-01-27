@@ -230,16 +230,31 @@ async def forfeit(ctx):
         
 async def create_new_match(match):
     
-    active_matches.append(match)
-        
+    # TODO: add matches_channel_id to game object
     channel = bot.get_channel(1199197176740454441)
+    
     message = await channel.send(f"Match #{match['match_id']}: {match['p1']['username']} vs. {match['p2']['username']}")
     thread = await message.create_thread(name=match['match_id'], auto_archive_duration=1440)
+    
+    match['discord_thread_id'] = thread.id
+    active_matches.append(match)
+
+    try:
+        requests.put(
+            API_URL + f"/match/{match['match_id']}/", 
+            json={
+                "discord_thread_id": thread.id,
+            }
+        )   
+    except Exception as e:
+        await thread.send(f"Failed to update match thread: {e}")
+        print(f"Exception in create_new_match: {e}")
+    
     await thread.send(f"<@{match['p1']['discord_id']}> <@{match['p2']['discord_id']}> Your {match['game']['game_name']} match is ready. Your current elos are **{match['p1_mu_before']}** and **{match['p2_mu_before']}** respectively.")   
 
-    await send_predictions(thread, match)
+    await send_predictions(match)
     
-    await live_procedure(thread, match)
+    await live_procedure(match)
 
 @bot.slash_command(guild_ids=[GUILD_ID])
 async def live(ctx):
@@ -253,8 +268,8 @@ async def live(ctx):
         return
     
     # get the match by match_id
-    match = next((m for m in active_matches if m['match_id'] == ctx.channel.name), None)    
-    
+    match = next((m for m in active_matches if m['match_id'] == ctx.channel.name), None)
+        
     if match is None:
         await ctx.respond("This match is not active", ephemeral=True)
         return
@@ -263,19 +278,23 @@ async def live(ctx):
         await ctx.respond("Livestreams already found", ephemeral=True)
         return
     
-    await live_procedure(ctx.channel, None)
+    await live_procedure(match, None)
     
-async def live_procedure(thread, match):
+async def live_procedure(match):
+        
+    thread = bot.get_channel(match['discord_thread_id'])
     
-    is_p1_live = await check_live(thread, match, 1)
-    is_p2_live = await check_live(thread, match, 2)
+    is_p1_live = await check_live(match, 1)
+    is_p2_live = await check_live(match, 2)
     
     if is_p1_live and is_p2_live:
-        await ongoing_procedure(thread, match)
+        await ongoing_procedure(match)
     else:
         await thread.send("Both players are not live on YouTube. Use **/live** to check again. Use **/youtube** to change your YouTube username. **/cancel** is also available while both livestreams are not detected.")
 
-async def ongoing_procedure(thread, match):
+async def ongoing_procedure(match):
+    
+    thread = bot.get_channel(match['discord_thread_id'])
     
     match['status'] = "Ongoing"
         
@@ -287,7 +306,6 @@ async def ongoing_procedure(thread, match):
         
         if not res.ok:
             raise Exception(res.text)
-        
         
         await thread.send("This match is now ongoing. Coordinate with your opponent to start your speedruns at approximately the same time, then after finishing use **/retime** or **/dnf** to report your score.\n## GLHF!")
         
@@ -307,7 +325,7 @@ async def retime(ctx, start, end, fps): # start and end are youtube debug infos
     
     match_id = int(ctx.channel.name)
     match = next((m for m in active_matches if m['match_id'] == match_id), None)
-    
+        
     # check if we're in a thread
     try:
         parent = ctx.channel.parent
@@ -352,10 +370,47 @@ async def retime(ctx, start, end, fps): # start and end are youtube debug infos
     # round to the start of the nearest frame
     score = int(score - (score % (1000 / fps) ) + 0.5)
     
-    await ctx.respond(f"Your score is {score}ms")
-            
+    await ctx.respond(f"The retime resulted in a time of {score}ms", ephemeral=True)
+        
+    await report_score(match, player, score)
+        
+async def report_score(match, player, score):
+    
+    thread = bot.get_channel(match['discord_thread_id'])
+    
+    match_id = match['match_id']
+    discord_id = match[f'p{player}']['discord_id']
+    
+    try:
+        res = requests.get(
+            API_URL + f"/report/{match_id}?player={discord_id}&score={score}"
+        )
+        match = res.json()
+        
+        if not res.ok:
+            raise Exception(res.text)
+    
+    except Exception as e:
+        await thread.send(f"Failed to report score: {e}")
+        print(f"Exception in report_score: {e}")
+    
+    await thread.send(f"{match[f'p{player}']['username']} has reported their score as {score}")
+    
+    if match['p1_score'] and match['p2_score']:
+        await agree_procedure(match)
+        
+async def agree_procedure(match):
+    
+    # TODO: temp
+    thread = bot.get_channel(match['discord_thread_id'])
+    await thread.send("Both players have reported their scores. Use **/agree** to confirm the outcome of the match, or **/disagree** to dispute the outcome.")
+    
+    
+           
 
-async def check_live(channel, match, player):
+async def check_live(match, player):
+    
+    thread = bot.get_channel(match['discord_thread_id'])
     
     yt_username = match[f'p{player}']['yt_username'] # player = 1 or 2
     
@@ -376,7 +431,7 @@ async def check_live(channel, match, player):
         start_time_el = soup.find('meta', {'itemprop': 'startDate'})
                                 
         if start_time_el is None: # if they are not live
-            await channel.send(f"{match[f'p{player}']['username']} is not live on YouTube")
+            await thread.send(f"{match[f'p{player}']['username']} is not live on YouTube")
             return False
                 
         video_id = soup.find('meta', {'itemprop': 'identifier'})['content']
@@ -389,7 +444,7 @@ async def check_live(channel, match, player):
         video_url = f"https://youtu.be/{video_id}?t={seconds_between}"
         
         res = requests.put(
-            API_URL + f"/match/{channel.name}/", 
+            API_URL + f"/match/{thread.name}/", 
             json={
                 f"p{player}_video_url": video_url,
             } 
@@ -398,15 +453,17 @@ async def check_live(channel, match, player):
         if not res.ok:
             raise Exception(res.text)
         
-        await channel.send(f"{match[f'p{player}']['username']} is live on YouTube at {video_url}")
+        await thread.send(f"{match[f'p{player}']['username']} is live on YouTube at {video_url}")
         return True
         
     except Exception as e:
-        await channel.send(f"Failed to check if {match[f'p{player}']['username']} is live: {e}")
+        await thread.send(f"Failed to check if {match[f'p{player}']['username']} is live: {e}")
         return False
 
         
-async def send_predictions(thread, match):
+async def send_predictions(match):
+    
+    thread = bot.get_channel(match['discord_thread_id'])
     
     def float_to_percent(value):
         return f"{value * 100:.1f}%"
