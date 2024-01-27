@@ -301,7 +301,9 @@ async def ongoing_procedure(match):
     try:
         res = requests.put(
             API_URL + f"/match/{thread.name}/", 
-            json=match  
+            json={
+                "status": "Ongoing",      
+            }  
         )
         
         if not res.ok:
