@@ -61,7 +61,7 @@ class QueueView(discord.ui.View):
                       
             # the endpoint returns newly created matches
             new_matches = res.json()
-                        
+                                
             for match in new_matches:
                 await create_new_match(match)
              
@@ -309,7 +309,7 @@ async def ongoing_procedure(match):
         if not res.ok:
             raise Exception(res.text)
         
-        await thread.send("## This match is now ongoing.\nCoordinate with your opponent to start your speedruns at approximately the same time, then after finishing use **/retime** or **/dnf** to report your score.\n## GLHF!")
+        await thread.send("## This match is now ongoing.\nCoordinate with your opponent to start your speedruns at approximately the same time, then after finishing use **/retime** to report your score.\n## GLHF!")
         
     except Exception as e:
         await thread.send(f"Failed to update match status: {e}")
@@ -396,7 +396,7 @@ async def report_score(match, player, score):
         await thread.send(f"Failed to report score: {e}")
         print(f"Exception in report_score: {e}")
     
-    await thread.send(f"{match[f'p{player}']['username']} has reported a score of {score}")
+    await thread.send(f"{match[f'p{player}']['username']} has reported a score of {match[f'p{player}_score']}")
     
     if match['p1_score'] and match['p2_score']:
         await agree_procedure(match)
