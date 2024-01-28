@@ -72,9 +72,12 @@ class QueueView(discord.ui.View):
                 await interaction.followup.send(f"Left queue", ephemeral=True)
         
         except Exception as e:
-            await interaction.followup.send(f"Failed to join {self.game_name} queue: {e}", ephemeral=True)
-            # raise e
+            # await interaction.followup.send(f"Failed to join {self.game_name} queue: {e}", ephemeral=True)
+            # # raise e
     
+            soup = BeautifulSoup(res.text, 'html.parser')
+            await interaction.followup.send(f"Failed to join {self.game_name} queue: {soup.find('body').text[:1950]}", ephemeral=True)
+            
 class AreYouSureView(discord.ui.View):
     
     def __init__(self, user_id):
@@ -405,7 +408,28 @@ async def agree_procedure(match):
     
     # TODO: temp
     thread = bot.get_channel(match['discord_thread_id'])
-    await thread.send("## Both players have reported scores.\nUse **/agree** to confirm the outcome of the match, or **/disagree** to dispute the outcome.")
+    
+    if match['p1_score'] > match['p2_score']:
+        winner = 1
+        loser = 2
+    elif match['p1_score'] < match['p2_score']:
+        winner = 2
+        loser = 1
+    else:
+        winner = 0
+        loser = 0
+        
+    message = "## Both players have reported scores.\n"
+    
+    if winner != loser:
+        message += f"{match[f'p{winner}']['username']} has won the match with a score of {match[f'p{winner}_score']}, beating {match[f'p{loser}']['username']}'s score of {match[f'p{loser}_score']}.\n\n"
+    else:
+        message += f"The match is a draw, with both players scoring {match[f'p{winner}_score']}.\n\n"
+        
+    message += "Use **/agree** to confirm the results. Use **/disagree** to dispute the results. Use **/retime** again to resubmit your score."
+    
+    await thread.send(message)
+        
     
     
            
