@@ -511,9 +511,37 @@ async def send_predictions(match):
 
     embed = discord.Embed(title="Predictions", color=0x00ff00)
     
-    embed.add_field(name="", value=f"⠀\n**Current elo**\n**New elo ({match['p1']['username']} wins)**\n**New elo ({match['p2']['username']} wins)**\n**New elo (draw)**\n**Win probability**", inline=True)
-    embed.add_field(name="", value=f"__{match['p1']['username']}__\n{match['p1_mu_before']}\n{elo_predictions['1'][0][0]} ({elo_predictions['1'][0][1]})\n{elo_predictions['2'][0][0]} ({elo_predictions['2'][0][1]})\n{elo_predictions['D'][0][0]} ({elo_predictions['D'][0][1]})\n{p1_win_prob}", inline=True)
-    embed.add_field(name="", value=f"__{match['p2']['username']}__\n{match['p2_mu_before']}\n{elo_predictions['1'][1][0]} ({elo_predictions['1'][1][1]})\n{elo_predictions['2'][1][0]} ({elo_predictions['2'][1][1]})\n{elo_predictions['D'][1][0]} ({elo_predictions['D'][1][1]})\n{p2_win_prob}", inline=True)
+    cols = [
+        [
+            "⠀", 
+            "**Current elo**", 
+            f"**New elo ({match['p1']['username']} wins)**", 
+            f"**New elo ({match['p2']['username']} wins)**", 
+            f"**New elo (draw)**", 
+            "**Estimated win percent**"
+        ],
+        [
+            f"__**{match['p1']['username']}**__",
+            f"{match['p1_mu_before']}",
+            f"{new_elos['1'][0]} ({deltas['1'][0]})",
+            f"{new_elos['2'][0]} ({deltas['2'][0]})",
+            f"{new_elos['D'][0]} ({deltas['D'][0]})",
+            f"{p1_win_prob}",
+        ],
+        [
+            f"__**{match['p2']['username']}**__",
+            f"{match['p2_mu_before']}",
+            f"{new_elos['1'][1]} ({deltas['1'][1]})",
+            f"{new_elos['2'][1]} ({deltas['2'][1]})",
+            f"{new_elos['D'][1]} ({deltas['D'][1]})",
+            f"{p2_win_prob}",  
+        ],
+    ]
+    
+    
+    for i in range(len(cols)):
+        # join 1-i with \n
+        embed.add_field(name=cols[i][0], value="\n".join([cols[i][j] for j in range(1, len(cols[i]))]), inline=True)
     
     await thread.send(embed=embed)
         
