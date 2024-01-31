@@ -511,7 +511,7 @@ async def send_predictions(match):
 
     embed = discord.Embed(title="Predictions", color=0x00ff00)
     
-    embed.add_field(name="", value=f"⠀\n**Current elo**\n**New elo ({match['p1']['username']} wins)**\n**New elo ({match['p2']['username']} wins)**\n**New elo (draw)**\n**Win prob.**", inline=True)
+    embed.add_field(name="", value=f"⠀\n**Current elo**\n**New elo ({match['p1']['username']} wins)**\n**New elo ({match['p2']['username']} wins)**\n**New elo (draw)**\n**Win probability**", inline=True)
     embed.add_field(name="", value=f"__{match['p1']['username']}__\n{match['p1_mu_before']}\n{elo_predictions['1'][0][0]} ({elo_predictions['1'][0][1]})\n{elo_predictions['2'][0][0]} ({elo_predictions['2'][0][1]})\n{elo_predictions['D'][0][0]} ({elo_predictions['D'][0][1]})\n{p1_win_prob}", inline=True)
     embed.add_field(name="", value=f"__{match['p2']['username']}__\n{match['p2_mu_before']}\n{elo_predictions['1'][1][0]} ({elo_predictions['1'][1][1]})\n{elo_predictions['2'][1][0]} ({elo_predictions['2'][1][1]})\n{elo_predictions['D'][1][0]} ({elo_predictions['D'][1][1]})\n{p2_win_prob}", inline=True)
     
