@@ -509,17 +509,13 @@ async def send_predictions(match):
         
     # TODO: make this into a table somehow. This is way too long and ugly 
 
-    message = f"## Predictions\n"
-    message += f"The math gods give {match['p1']['username']} a **{p1_win_prob}** win probability, likewise giving {match['p2']['username']} a **{p2_win_prob}** win probability."
-    message += "\n\n"
-    message += f"If {match['p1']['username']} wins, your new elos will be **{new_elos['1'][0]} ({deltas['1'][0]})** and **{new_elos['1'][1]} ({deltas['1'][1]})** respectively."
-    message += "\n"
-    message += f"If {match['p2']['username']} wins, your new elos will be **{new_elos['2'][0]} ({deltas['2'][0]})** and **{new_elos['2'][1]} ({deltas['2'][1]})** respectively."
-    message += "\n"
-    message += f"In the event of a draw, your new elos will be **{new_elos['D'][0]} ({deltas['D'][0]})** and **{new_elos['D'][1]} ({deltas['D'][1]})** respectively."
+    embed = discord.Embed(title="Predictions", color=0x00ff00)
     
-
-    await thread.send(message)
+    embed.add_field(name="", value=f"⠀\n**Current elo**\n**New elo ({match['p1']['username']} wins)**\n**New elo ({match['p2']['username']} wins)**\n**New elo (draw)**\n**Win prob.**", inline=True)
+    embed.add_field(name="", value=f"__{match['p1']['username']}__\n{match['p1_mu_before']}\n{elo_predictions['1'][0][0]} ({elo_predictions['1'][0][1]})\n{elo_predictions['2'][0][0]} ({elo_predictions['2'][0][1]})\n{elo_predictions['D'][0][0]} ({elo_predictions['D'][0][1]})\n{p1_win_prob}", inline=True)
+    embed.add_field(name="", value=f"__{match['p2']['username']}__\n{match['p2_mu_before']}\n{elo_predictions['1'][1][0]} ({elo_predictions['1'][1][1]})\n{elo_predictions['2'][1][0]} ({elo_predictions['2'][1][1]})\n{elo_predictions['D'][1][0]} ({elo_predictions['D'][1][1]})\n{p2_win_prob}", inline=True)
+    
+    await thread.send(embed=embed)
         
         
     
