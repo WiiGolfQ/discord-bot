@@ -11,8 +11,8 @@ class UserSettings(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
     
-    @commands.slash_command()
-    async def youtube(ctx, yt_username):
+    @discord.slash_command()
+    async def youtube(self, ctx, yt_username):
         
         discord_id = ctx.author.id
         
