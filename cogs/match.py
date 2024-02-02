@@ -69,10 +69,8 @@ class Match(commands.Cog):
                     
                 match = res.json()
                 
-                await message.edit(f"{match[f'p{loser}']['username']} has forfeited. Closing match...", view=None)
-                
-                thread = self.bot.get_channel(ctx.channel.id)
-                await thread.edit(archived=True, locked=True)
+                await message.edit(f"## {match[f'p{loser}']['username']} has forfeited.\nClosing match...", view=None)
+                await self.close_match(match)
                 
             else:
                 await message.edit("Forfeit cancelled.", view=None)
@@ -97,7 +95,7 @@ class Match(commands.Cog):
         thread = await message.create_thread(name=match['match_id'], auto_archive_duration=1440)
         
         match['discord_thread_id'] = thread.id
-        match['agrees'] = [True, False]
+        match['agrees'] = [False, True] 
         
         self.bot.active_matches.append(match)
 
@@ -252,8 +250,6 @@ class Match(commands.Cog):
             )
             match = res.json()
             
-            print(match)
-            
             if not res.ok:
                 raise Exception(res.text)
         
@@ -261,7 +257,7 @@ class Match(commands.Cog):
             await thread.send(f"Failed to report score: {e}")
             print(f"Exception in report_score: {e}")
         
-        await thread.send(f"{match[f'p{player}']['username']} has reported a score of {match[f'p{player}_score_formatted']}")
+        await thread.send(f"{match[f'p{player}']['username']} has reported a score of **{match[f'p{player}_score_formatted']}**.")
         
         if match['p1_score'] and match['p2_score']:
             await self.agree_procedure(match)
@@ -269,11 +265,12 @@ class Match(commands.Cog):
     async def agree_procedure(self, match):
         
         thread = self.bot.get_channel(match['discord_thread_id'])
-        
+                
         match_id = match['match_id']
-        match['status'] = "Waiting for agrees"
-        
+                
+                        
         try:
+            # update status in database
             res = requests.put(
                 API_URL + f"/match/{match_id}/", 
                 json={
@@ -283,9 +280,18 @@ class Match(commands.Cog):
             
             if not res.ok:
                 raise Exception(res.text)
-        except:
+            
+            match = res.json()
+            
+        except Exception as e:
             await thread.send(f"Failed to update match status: {e}")
             print(f"Exception in agree_procedure: {e}")
+            
+        # replace match in active_matches with the updated match
+        for m in self.bot.active_matches:
+            if m['match_id'] == match_id:
+                m.update(match)  # Update the attributes of m with the attributes of match
+                break
         
         if match['p1_score'] < match['p2_score']:
             winner = 1
@@ -300,7 +306,7 @@ class Match(commands.Cog):
         message = "## Both players have reported scores.\n"
         
         if winner != loser:
-            message += f"{match[f'p{winner}']['username']} has won the match with a score of {match[f'p{winner}_score_formatted']}, beating {match[f'p{loser}']['username']}'s score of {match[f'p{loser}_score_formatted']}.\n\n"
+            message += f"{match[f'p{winner}']['username']} has won the match with a score of **{match[f'p{winner}_score_formatted']}**, beating {match[f'p{loser}']['username']}'s score of **{match[f'p{loser}_score_formatted']}**.\n\n"
         else:
             message += f"The match is a draw, with both players scoring {match[f'p{winner}_score']}.\n\n"
             
@@ -441,9 +447,7 @@ class Match(commands.Cog):
         else:
             await ctx.respond("You are not playing in this match", ephemeral=True)
             return
-        
-        print(match)
-        
+                
         if match['status'] != "Waiting for agrees":
             await ctx.respond("Both players have not submitted scores", ephemeral=True)
             return
@@ -451,17 +455,44 @@ class Match(commands.Cog):
         #toggle the player's agreement
         match['agrees'][player - 1] = not match['agrees'][player - 1]
     
-        ctx.respond(f"{match[f'p{player}']['username']}'s agreement status has been toggled to {match['agrees'][player - 1]}.")
+        await ctx.respond(f"{match[f'p{player}']['username']}'s agreement status has been toggled to {match['agrees'][player - 1]}.")
         
         if match['agrees'] == [True, True]:
-            ctx.send("## Both players have agreed to the outcome.\nClosing match...")
+            await ctx.send("## Both players have agreed to the outcome.\nClosing match...")
             await self.close_match(match)
     
     async def close_match(self, match):
         
         thread = self.bot.get_channel(match['discord_thread_id'])
         
-        thread.send('close match procedure')
+        await thread.edit(archived=True, locked=True)
+        
+        match_id = match['match_id']
+        
+        # remove match from active_matches
+        for m in self.bot.active_matches:
+            if m['match_id'] == match_id:
+                self.bot.active_matches.remove(m)
+                break
+            
+        try:
+            
+            res = requests.put(
+                API_URL + f"/match/{match_id}/", 
+                json={
+                    "status": "Finished",
+                } 
+            )
+            
+            if not res.ok:
+                raise Exception(res.text)
+            
+        except Exception as e:
+            
+            await thread.send(f"Failed to close match: {e}")
+            print(f"Exception in close_match: {e}")
+            
+        
         
         
         
