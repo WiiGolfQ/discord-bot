@@ -2,7 +2,6 @@ from discord.ext import commands
 from discord import Embed
 
 import requests
-import json
 from datetime import datetime, timezone
 
 from bs4 import BeautifulSoup
@@ -31,6 +30,7 @@ class Match(commands.Cog):
         
         # check if the player is actually playing in the match
         try:
+            # TODO: change this to use self.bot.active_matches
             res = requests.get(
                 API_URL + f"/match/{ctx.channel.name}/"
             )
@@ -55,19 +55,6 @@ class Match(commands.Cog):
             confirmation, message = await are_you_sure(ctx)
                     
             if confirmation:
-                res = requests.put(
-                    API_URL + f"/match/{ctx.channel.name}/", 
-                    json={
-                        "status": "Finished",
-                        "result": f"{winner}",
-                    } 
-                )
-                                
-                if not res.ok:
-                    raise Exception(res.json()['detail'])
-
-                    
-                match = res.json()
                 
                 await message.edit(f"## {match[f'p{loser}']['username']} has forfeited.\nClosing match...", view=None)
                 await self.close_match(match)
@@ -182,6 +169,24 @@ class Match(commands.Cog):
     @commands.slash_command()
     async def retime(self, ctx, start, end, fps): # start and end are youtube debug infos
         
+        def get_ms_from_debug_info(debug_info):
+            
+            # there is an attribute called 'vct' in the debug info
+            # this is the current time in seconds
+            
+        
+            start_index = debug_info.find('\"vct\": \"') + len('\"vct\": \"')
+            end_index = debug_info.find('\",', start_index)
+            
+            # will return -1 if the substring is not found
+            if start_index == -1 or end_index == -1:
+                raise Exception("Invalid debug info")
+
+            
+            # get the start and end times in milliseconds (it's initially a string)
+            return int(float(debug_info[start_index:end_index]) * 1000)
+        
+            
         fps = int(fps)
 
         if not (fps == 30 or fps == 60):
@@ -212,26 +217,16 @@ class Match(commands.Cog):
             await ctx.respond("This match is not ongoing", ephemeral=True)
             return
         
-        # make sure it's json
         try:
-            start = json.loads(start)
-            end = json.loads(end)
+            start_ms = get_ms_from_debug_info(start)
+            end_ms = get_ms_from_debug_info(end)
         except:
-            await ctx.respond("Invalid start or end time", ephemeral=True)
+            await ctx.respond("Invalid debug info", ephemeral=True)
             return
-            
-        # make sure the json has the 'vct' key (the current video duration)
-        if start['vct'] is None or end['vct'] is None:
-            await ctx.respond("Invalid start or end time", ephemeral=True)
-            return
-        
-        # get the start and end times in milliseconds (it's initially a string)
-        start_ms = int(float(start['vct']) * 1000)
-        end_ms = int(float(end['vct']) * 1000)
-        
         
         # find time between start and end
         score = end_ms - start_ms
+        
         # round to the start of the nearest frame
         score = int(score - (score % (1000 / fps) ) + 0.5)
         
@@ -483,6 +478,8 @@ class Match(commands.Cog):
                 API_URL + f"/match/{match_id}/", 
                 json={
                     "status": "Finished",
+                    # TODO: result seems to need to be changed for this to work
+                    # either change manually or have the backend change it
                 } 
             )
             
