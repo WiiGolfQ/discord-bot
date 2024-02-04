@@ -130,7 +130,7 @@ class Match(commands.Cog):
         # get the match by match_id
         match_id = int(ctx.channel.name)
         match = next((m for m in self.bot.active_matches if m['match_id'] == match_id), None)
-            
+                    
         if match is None:
             await ctx.respond("This match is not active", ephemeral=True)
             return
@@ -139,12 +139,14 @@ class Match(commands.Cog):
             await ctx.respond("Livestreams already found", ephemeral=True)
             return
         
-        await self.live_procedure(match, None)
+        await ctx.respond("Checking for livestreams...")
+        
+        await self.live_procedure(match)
         
     async def live_procedure(self, match):
             
         thread = self.bot.get_channel(match['discord_thread_id'])
-        
+            
         is_p1_live = await self.check_live(match, 1)
         is_p2_live = await self.check_live(match, 2)
         
@@ -308,7 +310,7 @@ class Match(commands.Cog):
         if winner != loser:
             message += f"{match[f'p{winner}']['username']} has won the match with a score of **{match[f'p{winner}_score_formatted']}**, beating {match[f'p{loser}']['username']}'s score of **{match[f'p{loser}_score_formatted']}**.\n\n"
         else:
-            message += f"The match is a draw, with both players scoring {match[f'p{winner}_score']}.\n\n"
+            message += f"The match is a draw, with both players scoring **{match['p1_score']}**.\n\n"
             
         message += "Use **/agree** to confirm the results. Use **/disagree** to dispute the results. Use **/retime** again to resubmit your score."
         

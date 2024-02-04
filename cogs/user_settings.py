@@ -38,6 +38,18 @@ class UserSettings(commands.Cog):
         except Exception as e:
             await ctx.respond(f"Failed to link YouTube account: {e}", ephemeral=True)
             
+            
+        # change the yt username for any match this player is in        
+        for match in self.bot.active_matches:
+            
+            if discord_id == match['p1']['discord_id']:
+                match['p1']['yt_username'] = yt_username
+                break # theoretically someone should only be in one match at a time
+            
+            if discord_id == match['p2']['discord_id']:
+                match['p2']['yt_username'] = yt_username
+                break # theoretically someone should only be in one match at a time 
+            
 
 def setup(bot):
     bot.add_cog(UserSettings(bot))
