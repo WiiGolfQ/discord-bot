@@ -57,7 +57,7 @@ class Match(commands.Cog):
             if confirmation:
                 
                 await message.edit(f"## {match[f'p{loser}']['username']} has forfeited.\nClosing match...", view=None)
-                await self.close_match(match)
+                await self.close_match(match, f"{loser}")
                 
             else:
                 await message.edit("Forfeit cancelled.", view=None)
@@ -384,8 +384,8 @@ class Match(commands.Cog):
             new_elos[key] = [item[0] for item in value]
             deltas[key] = [item[1] for item in value]
             
-        # TODO: make this into a table somehow. This is way too long and ugly 
-
+        # TODO: make this into its own util function    
+        
         embed = Embed(title="Predictions", color=0x00ff00)
         
         cols = [
@@ -458,7 +458,7 @@ class Match(commands.Cog):
             await ctx.send("## Both players have agreed to the outcome.\nClosing match...")
             await self.close_match(match)
     
-    async def close_match(self, match):
+    async def close_match(self, match, forfeited_player=None):
         
         thread = self.bot.get_channel(match['discord_thread_id'])
         
@@ -473,13 +473,12 @@ class Match(commands.Cog):
                 break
             
         try:
-            
+                        
             res = requests.put(
                 API_URL + f"/match/{match_id}/", 
                 json={
                     "status": "Finished",
-                    # TODO: result seems to need to be changed for this to work
-                    # either change manually or have the backend change it
+                    "forfeited_player": forfeited_player, # either "1" or "2"
                 } 
             )
             
