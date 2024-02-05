@@ -287,7 +287,8 @@ class Match(commands.Cog):
         # replace match in active_matches with the updated match
         for m in self.bot.active_matches:
             if m['match_id'] == match_id:
-                m.update(match)  # Update the attributes of m with the attributes of match
+                m.update(match)  
+                m['agrees'] = [False, False] # set the agrees back to False so you can't pull a fast one
                 break
         
         if match['p1_score'] < match['p2_score']:
@@ -320,9 +321,7 @@ class Match(commands.Cog):
         url = f"https://www.youtube.com/@{yt_username}/live"
         
         try:
-            
-            # check if the url redirects
-            
+                    
             res = requests.get(url)
             
             soup = BeautifulSoup(res.text, 'html.parser')
