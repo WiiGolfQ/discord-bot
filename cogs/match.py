@@ -1,5 +1,4 @@
 from discord.ext import commands
-from discord import Embed
 
 import requests
 from datetime import datetime, timezone
@@ -7,7 +6,7 @@ from datetime import datetime, timezone
 from bs4 import BeautifulSoup
 
 from config import API_URL
-from utils import are_you_sure
+from utils import are_you_sure, send_table
 
 class Match(commands.Cog):
     
@@ -97,11 +96,60 @@ class Match(commands.Cog):
             await thread.send(f"Failed to update match thread: {e}")
             print(f"Exception in create_new_match: {e}")
         
-        await thread.send(f"<@{match['p1']['discord_id']}> <@{match['p2']['discord_id']}> Your {match['game']['game_name']} match is ready. Your current elos are **{match['p1_mu_before']}** and **{match['p2_mu_before']}** respectively.")   
+        await thread.send(f"<@{match['p1']['discord_id']}> <@{match['p2']['discord_id']}> Your {match['game']['game_name']} match is ready.")   
 
         await self.send_predictions(match)
         
         await self.live_procedure(match)
+        
+    async def send_predictions(self, match):
+                
+        def float_to_percent(value):
+            return f"{value * 100:.1f}%"
+        
+        elo_predictions = match['predictions']['elo']
+        
+        p1_win_prob = match['predictions']['p1_win_prob']
+        p2_win_prob = float_to_percent(1 - p1_win_prob)
+        p1_win_prob = float_to_percent(p1_win_prob)
+        
+        new_elos = {}
+        deltas = {}
+                
+        for key, value in elo_predictions.items():
+            new_elos[key] = [item[0] for item in value]
+            deltas[key] = [item[1] for item in value]
+        
+        cols = [
+            [
+                "⠀", 
+                "**Current elo**", 
+                f"**New elo ({match['p1']['username']} wins)**", 
+                f"**New elo ({match['p2']['username']} wins)**", 
+                f"**New elo (draw)**", 
+                "**Estimated win percent**"
+            ],
+            [
+                f"__**{match['p1']['username']}**__",
+                f"{match['p1_mu_before']}",
+                f"{new_elos['1'][0]} ({deltas['1'][0]})",
+                f"{new_elos['2'][0]} ({deltas['2'][0]})",
+                f"{new_elos['D'][0]} ({deltas['D'][0]})",
+                f"{p1_win_prob}",
+            ],
+            [
+                f"__**{match['p2']['username']}**__",
+                f"{match['p2_mu_before']}",
+                f"{new_elos['1'][1]} ({deltas['1'][1]})",
+                f"{new_elos['2'][1]} ({deltas['2'][1]})",
+                f"{new_elos['D'][1]} ({deltas['D'][1]})",
+                f"{p2_win_prob}",  
+            ],
+        ]
+        
+        thread = self.bot.get_channel(match['discord_thread_id'])
+        
+        await send_table(thread, "Predictions", cols)
         
     @commands.slash_command()
     async def live(self, ctx):
@@ -288,7 +336,7 @@ class Match(commands.Cog):
         for m in self.bot.active_matches:
             if m['match_id'] == match_id:
                 m.update(match)  
-                m['agrees'] = [False, False] # set the agrees back to False so you can't pull a fast one
+                m['agrees'] = [False, True] # set the agrees back to False so you can't pull a fast one
                 break
         
         if match['p1_score'] < match['p2_score']:
@@ -311,7 +359,7 @@ class Match(commands.Cog):
         message += "Use **/agree** to confirm the results. Use **/disagree** to dispute the results. Use **/retime** again to resubmit your score."
         
         await thread.send(message)
-        
+                
     async def check_live(self, match, player):
     
         thread = self.bot.get_channel(match['discord_thread_id'])
@@ -361,66 +409,6 @@ class Match(commands.Cog):
         except Exception as e:
             await thread.send(f"Failed to check if {match[f'p{player}']['username']} is live: {e}")
             return False
-
-            
-    async def send_predictions(self, match):
-        
-        thread = self.bot.get_channel(match['discord_thread_id'])
-        
-        def float_to_percent(value):
-            return f"{value * 100:.1f}%"
-        
-        elo_predictions = match['predictions']['elo']
-        
-        p1_win_prob = match['predictions']['p1_win_prob']
-        p2_win_prob = float_to_percent(1 - p1_win_prob)
-        p1_win_prob = float_to_percent(p1_win_prob)
-        
-        new_elos = {}
-        deltas = {}
-                
-        for key, value in elo_predictions.items():
-            new_elos[key] = [item[0] for item in value]
-            deltas[key] = [item[1] for item in value]
-            
-        # TODO: make this into its own util function    
-        
-        embed = Embed(title="Predictions", color=0x00ff00)
-        
-        cols = [
-            [
-                "⠀", 
-                "**Current elo**", 
-                f"**New elo ({match['p1']['username']} wins)**", 
-                f"**New elo ({match['p2']['username']} wins)**", 
-                f"**New elo (draw)**", 
-                "**Estimated win percent**"
-            ],
-            [
-                f"__**{match['p1']['username']}**__",
-                f"{match['p1_mu_before']}",
-                f"{new_elos['1'][0]} ({deltas['1'][0]})",
-                f"{new_elos['2'][0]} ({deltas['2'][0]})",
-                f"{new_elos['D'][0]} ({deltas['D'][0]})",
-                f"{p1_win_prob}",
-            ],
-            [
-                f"__**{match['p2']['username']}**__",
-                f"{match['p2_mu_before']}",
-                f"{new_elos['1'][1]} ({deltas['1'][1]})",
-                f"{new_elos['2'][1]} ({deltas['2'][1]})",
-                f"{new_elos['D'][1]} ({deltas['D'][1]})",
-                f"{p2_win_prob}",  
-            ],
-        ]
-        
-        
-        for i in range(len(cols)):
-            # join 1-i with \n
-            embed.add_field(name=cols[i][0], value="\n".join([cols[i][j] for j in range(1, len(cols[i]))]), inline=True)
-        
-        await thread.send(embed=embed)
-        
         
     @commands.slash_command()
     async def agree(self, ctx):
@@ -461,6 +449,8 @@ class Match(commands.Cog):
         
         thread = self.bot.get_channel(match['discord_thread_id'])
         
+        await self.send_results(match)
+        
         await thread.edit(archived=True, locked=True)
         
         match_id = match['match_id']
@@ -489,7 +479,40 @@ class Match(commands.Cog):
             await thread.send(f"Failed to close match: {e}")
             print(f"Exception in close_match: {e}")
             
+                
+            
+    async def send_results(self, match):
         
+        elo_predictions = match['predictions']['elo']
+        
+        result = match['result']
+        
+        cols = [
+            [
+                "⠀", 
+                "**Elo before**", 
+                "**Elo after**", 
+            ],
+            [
+                f"__**{match['p1']['username']}**__",
+                f"{match['p1_mu_before']}",
+                f"{elo_predictions[result][0][0]} ({elo_predictions[result][0][1]})", # new elo (delta)
+            ],
+            [
+                f"__**{match['p2']['username']}**__",
+                f"{match['p2_mu_before']}",
+                f"{elo_predictions[result][1][0]} ({elo_predictions[result][1][1]})",
+            ],
+        ]
+        
+        thread = self.bot.get_channel(match['discord_thread_id'])
+        await send_table(thread, "Results", cols)
+
+        
+        
+        
+        
+   
         
         
         

@@ -1,4 +1,5 @@
 import discord
+from discord import Embed
 
 class AreYouSureView(discord.ui.View):
     
@@ -36,3 +37,13 @@ async def are_you_sure(ctx, prompt="Are you sure?"):
     await view.wait()  # Wait for the View to stop interacting.
     
     return view.value, message  # True if the confirm button was pressed.
+
+async def send_table(thread, title, cols):
+            
+    embed = Embed(title=title, color=0x00ff00)
+    
+    for i in range(len(cols)):
+        # join 1-i with \n
+        embed.add_field(name=cols[i][0], value="\n".join([cols[i][j] for j in range(1, len(cols[i]))]), inline=True)
+    
+    await thread.send(embed=embed)
