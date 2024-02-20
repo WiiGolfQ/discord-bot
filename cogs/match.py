@@ -75,6 +75,7 @@ class Match(commands.Cog):
     async def create_new_match(self, match):
     
         # TODO: add matches_channel_id to game object
+        # or some other way
         channel = self.bot.get_channel(1199197176740454441)
         
         message = await channel.send(f"Match #{match['match_id']}: {match['p1']['username']} vs. {match['p2']['username']}")

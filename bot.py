@@ -22,6 +22,7 @@ cogs_list = [
     "cogs.queue",
     "cogs.match",
     "cogs.user_settings",
+    "cogs.leaderboard",
 ]
 
 for cog in cogs_list:
