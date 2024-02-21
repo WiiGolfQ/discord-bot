@@ -43,6 +43,30 @@ class Leaderboard(commands.Cog):
                 
                 await send_table(channel, f"{game['game_name']} Leaderboard", cols)
                 
+                
+                
+                
+                #TODO: make it so i'm not copy pasting :(
+                
+                res = requests.get(
+                    API_URL + f"/scores/{game['game_id']}"
+                )
+                
+                if not res.ok:
+                    raise Exception(res.text)
+                    
+                leaderboard = res.json()['results']
+                
+                cols = [
+                    ["__**Rank**__"] + [str(item['overall_rank']) for item in leaderboard],
+                    ["__**Player**__"] + [item['player']['username'] for item in leaderboard],
+                    ["__**Score**__"] + [item['score_formatted'] for item in leaderboard]
+                ]
+                
+                await send_table(channel, f"{game['game_name']} Scores Leaderboard", cols)    
+                
+                
+                
             except Exception as e:
                 await channel.send(f"Failed to get leaderboard for {game['game_name']}: {e}")
                 
