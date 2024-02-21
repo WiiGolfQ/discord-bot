@@ -11,10 +11,10 @@ class Leaderboard(commands.Cog):
         self.bot = bot
         self.send_leaderboards.start()
     
-    @tasks.loop(seconds=15)
+    @tasks.loop(minutes=15)
     async def send_leaderboards(self):
         
-        # temp
+        # TODO: getting the channel like this is temporary
         channel = self.bot.get_channel(1209352546557100112)
         if not channel:
             # this needs to be here for when the channel is not in the cache
@@ -33,7 +33,7 @@ class Leaderboard(commands.Cog):
                 if not res.ok:
                     raise Exception(res.text)
                     
-                leaderboard = res.json()
+                leaderboard = res.json()['results']
                 
                 cols = [
                     ["__**Rank**__"] + [str(item['rank']) for item in leaderboard],
