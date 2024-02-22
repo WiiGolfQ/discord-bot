@@ -30,14 +30,17 @@ class Match(commands.Cog):
         # check if the player is actually playing in the match
         try:
             # TODO: change this to use self.bot.active_matches
-            res = requests.get(
-                API_URL + f"/match/{ctx.channel.name}/"
-            )
             
-            if not res.ok:
-                raise Exception(res.text)
+            match = next((m for m in self.bot.active_matches if m['discord_thread_id'] == ctx.channel.id), None)
             
-            match = res.json()
+            # res = requests.get(
+            #     API_URL + f"/match/{ctx.channel.name}/"
+            # )
+            
+            # if not res.ok:
+            #     raise Exception(res.text)
+            
+            # match = res.json()
             
             if discord_id == match['p1']['discord_id']:
                 winner = 2
@@ -63,8 +66,7 @@ class Match(commands.Cog):
                 return    
         
         except Exception as e:
-            await ctx.respond(f"Failed to forfeit match: {e}", ephemeral=True)
-            return
+            raise e
             # if res:
             #     soup = BeautifulSoup(res.text, 'html.parser')
             #     await ctx.respond(f"Failed to forfeit match: {soup.find('body').text[:1950]}", ephemeral=True)
@@ -74,12 +76,18 @@ class Match(commands.Cog):
             
     async def create_new_match(self, match):
     
-        # TODO: add matches_channel_id to game object
-        # or some other way
-        channel = self.bot.get_channel(1199197176740454441)
+        # TODO: add an env variable for matches channel
+        channel = self.bot.get_channel(1209994140969082931)
         
-        message = await channel.send(f"Match #{match['match_id']}: {match['p1']['username']} vs. {match['p2']['username']}")
-        thread = await message.create_thread(name=match['match_id'], auto_archive_duration=1440)
+        # get the tag for the game
+        tag = next((tag for tag in channel.available_tags if tag.name == match['game']['game_name']), None)
+        
+        thread = await channel.create_thread(
+            name=match['match_id'], 
+            auto_archive_duration=1440,
+            applied_tags=[tag],
+            content=f"{match['game']['game_name']}: {match['p1']['username']} (<@{match['p1']['discord_id']}>) vs. {match['p2']['username']} (<@{match['p2']['discord_id']}>)"
+        )
         
         match['discord_thread_id'] = thread.id
         match['agrees'] = [False, True] 
@@ -97,7 +105,7 @@ class Match(commands.Cog):
             await thread.send(f"Failed to update match thread: {e}")
             print(f"Exception in create_new_match: {e}")
         
-        await thread.send(f"<@{match['p1']['discord_id']}> <@{match['p2']['discord_id']}> Your {match['game']['game_name']} match is ready.")   
+        # await thread.send(f"<@{match['p1']['discord_id']}> <@{match['p2']['discord_id']}> Your {match['game']['game_name']} match is ready.")   
 
         await self.send_predictions(match)
         
@@ -447,22 +455,13 @@ class Match(commands.Cog):
             await self.close_match(match)
     
     async def close_match(self, match, forfeited_player=None):
-        
-        thread = self.bot.get_channel(match['discord_thread_id'])
-        
-        await self.send_results(match)
-        
-        await thread.edit(archived=True, locked=True)
-        
-        match_id = match['match_id']
-        
-        # remove match from active_matches
-        for m in self.bot.active_matches:
-            if m['match_id'] == match_id:
-                self.bot.active_matches.remove(m)
-                break
             
         try:
+            
+            # TODO: add an env variable for matches channel
+            channel = self.bot.get_channel(1209994140969082931)
+            thread = channel.get_thread(match['discord_thread_id'])
+            match_id = match['match_id']
                         
             res = requests.put(
                 API_URL + f"/match/{match_id}/", 
@@ -472,8 +471,22 @@ class Match(commands.Cog):
                 } 
             )
             
+            match = res.json()
+            
             if not res.ok:
                 raise Exception(res.text)
+            
+            
+            
+            await self.send_results(match)
+            
+            await thread.edit(archived=True, locked=True)
+            
+            # remove match from active_matches
+            for m in self.bot.active_matches:
+                if m['match_id'] == match_id:
+                    self.bot.active_matches.remove(m)
+                    break
             
         except Exception as e:
             
@@ -483,6 +496,7 @@ class Match(commands.Cog):
                 
             
     async def send_results(self, match):
+        
         
         elo_predictions = match['predictions']['elo']
         
@@ -505,8 +519,11 @@ class Match(commands.Cog):
                 f"{elo_predictions[result][1][0]} ({elo_predictions[result][1][1]})",
             ],
         ]
+                
+        # TODO: add an env variable for matches channel
+        channel = self.bot.get_channel(1209994140969082931)
         
-        thread = self.bot.get_channel(match['discord_thread_id'])
+        thread = channel.get_thread(match['discord_thread_id'])
         await send_table(thread, "Results", cols)
 
         
