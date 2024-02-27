@@ -80,7 +80,7 @@ class Match(commands.Cog):
         channel = self.bot.get_channel(1209994140969082931)
         
         # get the tag for the game
-        tag = next((tag for tag in channel.available_tags if tag.name == match['game']['game_name']), None)
+        tag = next((tag for tag in channel.available_tags if tag.name == match['game']['shortcode']), None)
         
         thread = await channel.create_thread(
             name=match['match_id'], 

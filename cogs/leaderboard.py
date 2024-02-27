@@ -15,15 +15,15 @@ class Leaderboard(commands.Cog):
     async def send_leaderboards(self):
         
         # TODO: getting the channel like this is temporary
-        channel = self.bot.get_channel(1209352546557100112)
+        channel = self.bot.get_channel(1211892000702332962)
         if not channel:
             # this needs to be here for when the channel is not in the cache
-            channel = await self.bot.fetch_channel(1209352546557100112)
+            channel = await self.bot.fetch_channel(1211892000702332962)
             
         await channel.purge()
         
         for game in self.bot.games:
-            
+                        
             try:
                 
                 res = requests.get(
@@ -33,42 +33,29 @@ class Leaderboard(commands.Cog):
                 if not res.ok:
                     raise Exception(res.text)
                     
-                leaderboard = res.json()['results']
-                
-                cols = [
-                    ["__**Rank**__"] + [str(item['rank']) for item in leaderboard],
-                    ["__**Player**__"] + [item['player']['username'] for item in leaderboard],
-                    ["__**Elo**__"] + [str(item['mu']) for item in leaderboard]
-                ]
-                
-                await send_table(channel, f"{game['game_name']} Leaderboard", cols)
-                
-                
-                
-                
-                #TODO: make it so i'm not copy pasting :(
+                players_leaderboard = res.json()['results']
                 
                 res = requests.get(
-                    API_URL + f"/scores/{game['game_id']}"
+                    API_URL + f"/scores/{game['game_id']}?obsolete=true/"
                 )
                 
-                if not res.ok:
-                    raise Exception(res.text)
-                    
-                leaderboard = res.json()['results']
+                scores_leaderboard = res.json()['results']
                 
-                cols = [
-                    ["__**Rank**__"] + [str(item['overall_rank']) for item in leaderboard],
-                    ["__**Player**__"] + [item['player']['username'] for item in leaderboard],
-                    ["__**Score**__"] + [item['score_formatted'] for item in leaderboard]
-                ]
+                await send_table(channel, f"{game['game_name']} (players leaderboard)", [
+                    ["__**Rank**__"] + [str(item['rank']) for item in players_leaderboard],
+                    ["__**Player**__"] + [item['player']['username'] for item in players_leaderboard],
+                    ["__**Elo**__"] + [str(item['mu']) for item in players_leaderboard]
+                ])
                 
-                await send_table(channel, f"{game['game_name']} Scores Leaderboard", cols)    
-                
-                
+                await send_table(channel, f"{game['game_name']} (scores leaderboard)", [
+                    ["__**Rank**__"] + [str(item['overall_rank']) for item in scores_leaderboard],
+                    ["__**Player**__"] + [item['player']['username'] for item in scores_leaderboard],
+                    ["__**Score**__"] + [str(item['score_formatted']) for item in scores_leaderboard]
+                ])
                 
             except Exception as e:
                 await channel.send(f"Failed to get leaderboard for {game['game_name']}: {e}")
+                # raise e
                 
 
 def setup(bot):
