@@ -10,7 +10,11 @@ class WGQBot(commands.Bot):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
-        self.games = requests.get(API_URL + "/game/").json()
+        res = requests.get(API_URL + "/game/")
+        
+        print(res.headers)
+        
+        self.games = res.json()
         self.active_matches = []
         
     async def on_ready(self):
