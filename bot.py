@@ -12,6 +12,7 @@ class WGQBot(commands.Bot):
         
         res = requests.get(API_URL + "/game/")
         
+        print(res.status_code)
         print(res.headers)
         
         self.games = res.json()
