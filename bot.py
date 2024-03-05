@@ -2,6 +2,7 @@ from discord.ext import commands
 
 import requests
 import os
+import bs4
 
 from config import API_URL, DISCORD_BOT_SECRET
 
@@ -14,6 +15,11 @@ class WGQBot(commands.Bot):
         
         print(res.status_code)
         print(res.headers)
+        
+        #print JUST TEXT using bs4
+        soup = bs4.BeautifulSoup(res.text, 'html.parser')
+        print(soup.get_text())
+        
         
         self.games = res.json()
         self.active_matches = []
