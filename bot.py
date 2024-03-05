@@ -3,7 +3,7 @@ from discord.ext import commands
 import requests
 import os
 
-from config import API_URL
+from config import API_URL, DISCORD_BOT_SECRET
 
 class WGQBot(commands.Bot):
     
@@ -28,5 +28,5 @@ cogs_list = [
 for cog in cogs_list:
     bot.load_extension(cog)
 
-token = os.environ.get("DISCORD_BOT_SECRET")
+token = DISCORD_BOT_SECRET
 bot.run(token)
