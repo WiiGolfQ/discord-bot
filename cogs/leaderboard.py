@@ -36,7 +36,7 @@ class Leaderboard(commands.Cog):
                 players_leaderboard = res.json()['results']
                 
                 res = requests.get(
-                    API_URL + f"/scores/{game['game_id']}?obsolete=true/"
+                    API_URL + f"/scores/{game['game_id']}?obsolete=true"
                 )
                 
                 scores_leaderboard = res.json()['results']

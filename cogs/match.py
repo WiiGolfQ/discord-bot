@@ -90,13 +90,15 @@ class Match(commands.Cog):
         )
         
         match['discord_thread_id'] = thread.id
+        
+        # TODO: p2 is always true for debug purposes
         match['agrees'] = [False, True] 
         
         self.bot.active_matches.append(match)
 
         try:
             requests.put(
-                API_URL + f"/match/{match['match_id']}/", 
+                API_URL + f"/match/{match['match_id']}", 
                 json={
                     "discord_thread_id": thread.id,
                 }
@@ -207,7 +209,7 @@ class Match(commands.Cog):
             
         try:
             res = requests.put(
-                API_URL + f"/match/{thread.name}/", 
+                API_URL + f"/match/{thread.name}", 
                 json={
                     "status": "Ongoing",      
                 }  
@@ -326,7 +328,7 @@ class Match(commands.Cog):
         try:
             # update status in database
             res = requests.put(
-                API_URL + f"/match/{match_id}/", 
+                API_URL + f"/match/{match_id}", 
                 json={
                     "status": "Waiting for agrees",
                 } 
@@ -403,7 +405,7 @@ class Match(commands.Cog):
             video_url = f"https://youtu.be/{video_id}?t={seconds_between}"
             
             res = requests.put(
-                API_URL + f"/match/{thread.name}/", 
+                API_URL + f"/match/{thread.name}", 
                 json={
                     f"p{player}_video_url": video_url,
                 } 
@@ -464,7 +466,7 @@ class Match(commands.Cog):
             match_id = match['match_id']
                         
             res = requests.put(
-                API_URL + f"/match/{match_id}/", 
+                API_URL + f"/match/{match_id}", 
                 json={
                     "status": "Finished",
                     "forfeited_player": forfeited_player, # either "1" or "2"
