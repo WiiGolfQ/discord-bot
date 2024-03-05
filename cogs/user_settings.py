@@ -3,7 +3,7 @@ from discord.ext import commands
 
 import requests
 
-from config import API_URL, GUILD_ID
+from config import API_URL
 
 
 class UserSettings(commands.Cog):
@@ -30,7 +30,7 @@ class UserSettings(commands.Cog):
                 raise Exception(res.text)
                 
             
-            await ctx.respond(f"Successfully linked YouTube account: {yt_username}", ephemeral=True)
+            await ctx.respond(f"Successfully linked YouTube account: @{yt_username}", ephemeral=True)
                     
             if res.status_code == 201:
                 await ctx.respond(f"{res.json()['username']} is now a WiiGolfQ user: you can now queue for matches. Make sure you're streaming before you join a queue", ephemeral=True)
