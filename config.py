@@ -1,7 +1,15 @@
-from dotenv import dotenv_values
+import os
 
-env_dict = dotenv_values(".env")
+from dotenv import load_dotenv
+load_dotenv()
 
-DISCORD_BOT_SECRET = env_dict["DISCORD_BOT_SECRET"]
-API_URL = env_dict["WGQ_API_URL"]
-QUEUE_CHANNEL_ID = int(env_dict["QUEUE_CHANNEL_ID"])
+def get_secret(key, default):
+    value = os.getenv(key, default)
+    if os.path.isfile(value):
+        with open(value) as f:
+            return f.read()
+    return value
+
+DISCORD_BOT_SECRET = get_secret("DISCORD_BOT_SECRET", None)
+API_URL = get_secret("API_URL", "http://backend:8000/api")
+QUEUE_CHANNEL_ID = int(get_secret("QUEUE_CHANNEL_ID", 1199195608091725954))
