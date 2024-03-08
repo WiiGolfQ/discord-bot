@@ -1,7 +1,6 @@
 from discord.ext import commands
 
 import requests
-import os
 
 from config import API_URL, DISCORD_BOT_TOKEN
 

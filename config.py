@@ -5,9 +5,6 @@ load_dotenv()
 
 def get_secret(key, default):
     value = os.getenv(key, default)
-    if os.path.isfile(value):
-        with open(value) as f:
-            return f.read()
     return value
 
 DISCORD_BOT_TOKEN = get_secret("DISCORD_BOT_TOKEN", None)
