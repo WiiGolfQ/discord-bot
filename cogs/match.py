@@ -1,4 +1,5 @@
 from discord.ext import commands
+from discord import option
 
 import requests
 from datetime import datetime, timezone
@@ -218,7 +219,7 @@ class Match(commands.Cog):
             if not res.ok:
                 raise Exception(res.text)
             
-            await thread.send("## This match is now ongoing.\nCoordinate with your opponent to start your speedruns at approximately the same time, then after finishing use **/retime** to report your score.\n## GLHF!")
+            await thread.send("## This match is now ongoing.\nCoordinate with your opponent to start your speedruns at approximately the same time, then after finishing use **/report** to report your score.\n## GLHF!")
             
         except Exception as e:
             await thread.send(f"Failed to update match status: {e}")
@@ -226,35 +227,40 @@ class Match(commands.Cog):
             return
         
     @commands.slash_command()
-    async def retime(self, ctx, start, end, fps): # start and end are youtube debug infos
-        
-        def get_ms_from_debug_info(debug_info):
-            
-            # there is an attribute called 'vct' in the debug info
-            # this is the current time in seconds
-            
-        
-            start_index = debug_info.find('\"vct\": \"') + len('\"vct\": \"')
-            end_index = debug_info.find('\",', start_index)
-            
-            # will return -1 if the substring is not found
-            if start_index == -1 or end_index == -1:
-                raise Exception("Invalid debug info")
-
-            
-            # get the start and end times in milliseconds (it's initially a string)
-            return int(float(debug_info[start_index:end_index]) * 1000)
-        
-            
-        fps = int(fps)
-
-        if not (fps == 30 or fps == 60):
-            await ctx.respond("FPS must be 30 or 60", ephemeral=True)
-            return
+    @option(
+        "score",
+        description="Your score (score matches only)",
+        required=False,
+        type=str
+    )
+    @option(
+        "start",
+        description="Your start debug info (speedrun matches only)",
+        required=False,
+        type=str
+    )
+    @option(
+        "end",
+        description="Your end debug info (speedrun matches only)",
+        required=False,
+        type=str
+    )
+    @option(
+        "fps",
+        description="Your game's FPS (speedrun matches only)",
+        required=False,
+        type=int
+    )
+    async def report(self, ctx, score, start, end, fps):
         
         match_id = int(ctx.channel.name)
         match = next((m for m in self.bot.active_matches if m['match_id'] == match_id), None)
-            
+        
+        # check if match is ongoing
+        if match is None or (match['status'] != "Ongoing" and match['status'] != "Waiting for agrees"):
+            await ctx.respond("This match is not ongoing", ephemeral=True)
+            return
+        
         # check if we're in a thread
         try:
             parent = ctx.channel.parent
@@ -270,27 +276,85 @@ class Match(commands.Cog):
         else:
             await ctx.respond("You are not playing in this match", ephemeral=True)
             return
+        
+        # get the match's game
+        game_name = match['game']['game_name']
+        game = next((g for g in self.bot.games if g['game_name'] == game_name), None)
+        
+        if game.speedrun:
             
-        # check if match is ongoing
-        if match['status'] != "Ongoing":
-            await ctx.respond("This match is not ongoing", ephemeral=True)
-            return
-        
-        try:
-            start_ms = get_ms_from_debug_info(start)
-            end_ms = get_ms_from_debug_info(end)
-        except:
-            await ctx.respond("Invalid debug info", ephemeral=True)
-            return
-        
-        # find time between start and end
-        score = end_ms - start_ms
-        
-        # round to the start of the nearest frame
-        score = int(score - (score % (1000 / fps) ) + 0.5)
-        
-        await ctx.respond(f"The retime resulted in a time of {score}ms", ephemeral=True)
+            if not start or not end or not fps:
+                await ctx.respond("You must provide start, end, and fps", ephemeral=True)
+                return
             
+            if score:
+                await ctx.respond("Don't provide a score for a speedrun match", ephemeral=True)
+                return
+                
+            fps = int(fps)
+
+            if not (fps == 30 or fps == 60):
+                await ctx.respond("FPS must be 30 or 60", ephemeral=True)
+                return
+            
+            def get_ms_from_debug_info(debug_info):
+                
+                # there is an attribute called 'vct' in the debug info
+                # this is the current time in seconds
+            
+                start_index = debug_info.find('\"vct\": \"') + len('\"vct\": \"')
+                end_index = debug_info.find('\",', start_index)
+                
+                # will return -1 if the substring is not found
+                if start_index == -1 or end_index == -1:
+                    raise Exception("Invalid debug info")
+
+                
+                # get the start and end times in milliseconds (it's initially a string)
+                return int(float(debug_info[start_index:end_index]) * 1000)
+            
+            try:
+                start_ms = get_ms_from_debug_info(start)
+                end_ms = get_ms_from_debug_info(end)
+            except:
+                await ctx.respond("Invalid debug info", ephemeral=True)
+                return
+            
+            # find time between start and end
+            score = end_ms - start_ms
+            
+            # round to the start of the nearest frame
+            score = int(score - (score % (1000 / fps) ) + 0.5)
+            
+            await ctx.respond(f"The retime resulted in a time of {score}ms", ephemeral=True)
+    
+        else:
+            
+            if not score:
+                await ctx.respond("You must provide a score", ephemeral=True)
+                return
+            if start or end or fps:
+                await ctx.respond("Don't provide start, end, and fps for a score match", ephemeral=True)
+                return
+            
+            sign, number = score[0], score[1:]
+            
+            if not number.isdigit():
+                await ctx.respond("Invalid score", ephemeral=True)
+                return
+
+            if sign == '-':
+                score = -int(number)
+            elif sign == '+':
+                score = int(number)
+            elif sign.isdigit():
+                score = int(score)
+            else:
+                await ctx.respond("Invalid score", ephemeral=True)
+                return
+            
+            await ctx.respond(f"Reporting a score of {score}...", ephemeral=True)
+                    
         await self.report_score(match, player, score)
             
     async def report_score(self, match, player, score):
@@ -367,7 +431,7 @@ class Match(commands.Cog):
         else:
             message += f"The match is a draw, with both players scoring **{match['p1_score']}**.\n\n"
             
-        message += "Use **/agree** to confirm the results. Use **/disagree** to dispute the results. Use **/retime** again to resubmit your score."
+        message += "Use **/agree** to confirm the results. Use **/disagree** to dispute the results. Use **/report** again to resubmit your score."
         
         await thread.send(message)
                 
