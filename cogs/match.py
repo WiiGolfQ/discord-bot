@@ -281,7 +281,7 @@ class Match(commands.Cog):
         game_name = match['game']['game_name']
         game = next((g for g in self.bot.games if g['game_name'] == game_name), None)
         
-        if game.speedrun:
+        if game['speedrun']:
             
             if not start or not end or not fps:
                 await ctx.respond("You must provide start, end, and fps", ephemeral=True)
@@ -366,9 +366,14 @@ class Match(commands.Cog):
         
         try:
             res = requests.get(
-                API_URL + f"/report/{match_id}?player={discord_id}&score={score}"
+                API_URL + f"/report/{match_id}",
+                params={
+                    "player": discord_id,
+                    "score": score,
+                }
             )
             match = res.json()
+            print(match)
             
             if not res.ok:
                 raise Exception(res.text)

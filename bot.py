@@ -10,7 +10,7 @@ class WGQBot(commands.Bot):
         super().__init__(*args, **kwargs)
         
         self.games = requests.get(API_URL + "/game").json()
-        self.active_matches = []
+        self.active_matches = requests.get(API_URL + "/match", params={"active": True}).json()
         
     async def on_ready(self):
         print(f'{self.user.name} has connected to Discord')
