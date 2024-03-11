@@ -1,5 +1,6 @@
+import discord
 from discord.ext import commands
-from discord import option
+from discord import PermissionOverwrite, option
 
 import requests
 from datetime import datetime, timezone
@@ -89,6 +90,24 @@ class Match(commands.Cog):
             applied_tags=[tag],
             content=f"{match['game']['game_name']}: {match['p1']['username']} (<@{match['p1']['discord_id']}>) vs. {match['p2']['username']} (<@{match['p2']['discord_id']}>)"
         )
+        
+        # we also create a new vc channel for the match
+        vc = await channel.guild.create_voice_channel(
+            name=match['match_id'],
+            category=channel.category,
+            user_limit=2,
+        )
+        
+        # we also give p1 and p2 permissions to connect
+        p1 = channel.guild.get_member(match['p1']['discord_id'])
+        p2 = channel.guild.get_member(match['p2']['discord_id'])
+        
+        # TODO: not really sure if this is a good idea
+        # im only doing this because im using not real users for testing
+        if p1:
+            await vc.set_permissions(p1, connect=True)
+        if p2:
+            await vc.set_permissions(p2, connect=True)
         
         match['discord_thread_id'] = thread.id
         
@@ -247,7 +266,7 @@ class Match(commands.Cog):
     )
     @option(
         "fps",
-        description="Your game's FPS (speedrun matches only)",
+        description="Your video FPS (speedrun matches only)",
         required=False,
         type=int
     )
@@ -527,42 +546,43 @@ class Match(commands.Cog):
     
     async def close_match(self, match, forfeited_player=None):
             
-        try:
-            
-            # TODO: add an env variable for matches channel
-            channel = self.bot.get_channel(1209994140969082931)
-            thread = channel.get_thread(match['discord_thread_id'])
-            match_id = match['match_id']
-                        
-            res = requests.put(
-                API_URL + f"/match/{match_id}", 
-                json={
-                    "status": "Finished",
-                    "forfeited_player": forfeited_player, # either "1" or "2"
-                } 
-            )
-            
-            match = res.json()
-            
-            if not res.ok:
-                raise Exception(res.text)
-            
-            
-            
-            await self.send_results(match)
-            
-            await thread.edit(archived=True, locked=True)
-            
-            # remove match from active_matches
-            for m in self.bot.active_matches:
-                if m['match_id'] == match_id:
-                    self.bot.active_matches.remove(m)
-                    break
-            
-        except Exception as e:
-            
-            await thread.send(f"Failed to close match: {e}")
-            print(f"Exception in close_match: {e}")
+        
+        # TODO: add an env variable for matches channel
+        channel = self.bot.get_channel(1209994140969082931)
+        thread = channel.get_thread(match['discord_thread_id'])
+        match_id = match['match_id']
+                    
+        res = requests.put(
+            API_URL + f"/match/{match_id}", 
+            json={
+                "status": "Finished",
+                "forfeited_player": forfeited_player, # either "1" or "2"
+            } 
+        )
+        
+        match = res.json()
+        
+        if not res.ok:
+            raise Exception(res.text)   
+        
+        
+        
+        await self.send_results(match)
+        
+        # lock the match thread
+        await thread.edit(archived=True, locked=True)
+        
+        # first look for a vc channel with the same name as the match id
+        vc = discord.utils.get(channel.guild.voice_channels, name=str(match_id))     
+        # then delete it
+        if vc:
+            await vc.delete()     
+        
+        # remove match from active_matches
+        for m in self.bot.active_matches:
+            if m['match_id'] == match_id:
+                self.bot.active_matches.remove(m)
+                break
             
                 
             
