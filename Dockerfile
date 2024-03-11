@@ -8,7 +8,7 @@ ENV PYTHONUNBUFFERED 1
 # Set the working directory in the container
 WORKDIR /app
 
-# Copy the requirements file into the container at /app
+# Copy only requirements.txt first to leverage Docker cache
 COPY requirements.txt /app/
 
 # Install dependencies
