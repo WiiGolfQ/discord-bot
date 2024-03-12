@@ -111,8 +111,7 @@ class Match(commands.Cog):
         
         match['discord_thread_id'] = thread.id
         
-        # TODO: p2 is always true for debug purposes
-        match['agrees'] = [False, True] 
+        match['agrees'] = [False, False] 
         
         self.bot.active_matches.append(match)
 
