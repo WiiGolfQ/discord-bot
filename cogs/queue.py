@@ -32,8 +32,10 @@ class Queue(commands.Cog):
             
             # temporary code for beta test season
             time = datetime.datetime.now()
-            if time < 1710277200 or time > 1711486800: # march 12th 5:00pm est to march 26th 5:00pm est
-                await interaction.followup.send("Season hasn't started yet", ephemeral=True)
+            start = datetime.datetime.fromtimestamp(1710277200)
+            end = datetime.datetime.fromtimestamp(1711486800)
+            if time < start or time > end: # march 12th 5:00pm est to march 26th 5:00pm est
+                await interaction.followup.send(":(", ephemeral=True)
                 return
             
             try:
