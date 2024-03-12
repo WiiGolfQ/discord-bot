@@ -1,5 +1,6 @@
 from discord.ext import commands
 import discord
+import datetime
 
 import requests
 
@@ -28,6 +29,12 @@ class Queue(commands.Cog):
         async def button_callback(self, button, interaction):
             
             await interaction.response.defer(ephemeral=True)
+            
+            # temporary code for beta test season
+            time = datetime.datetime.now()
+            if time < 1710277200 or time > 1711486800: # march 12th 5:00pm est to march 26th 5:00pm est
+                await interaction.followup.send("Season hasn't started yet", ephemeral=True)
+                return
             
             try:
                 
