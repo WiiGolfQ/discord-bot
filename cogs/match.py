@@ -434,7 +434,7 @@ class Match(commands.Cog):
         for m in self.bot.active_matches:
             if m['match_id'] == match_id:
                 m.update(match)  
-                m['agrees'] = [False, True] # set the agrees back to False so you can't pull a fast one
+                m['agrees'] = [False, False] # set the agrees back to False so you can't pull a fast one
                 break
         
         if match['p1_score'] < match['p2_score']:
