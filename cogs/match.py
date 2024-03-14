@@ -402,7 +402,7 @@ class Match(commands.Cog):
         
         await thread.send(f"{match[f'p{player}']['username']} has reported a score of **{match[f'p{player}_score_formatted']}**.")
         
-        if match['p1_score'] and match['p2_score']:
+        if match['p1_score'] != None and match['p2_score'] != None:
             await self.agree_procedure(match)
         
     async def agree_procedure(self, match):
