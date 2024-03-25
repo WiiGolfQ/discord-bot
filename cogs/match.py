@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 from bs4 import BeautifulSoup
 
-from config import API_URL
+from config import API_URL, MATCH_CHANNEL_ID
 from utils import are_you_sure, send_table
 
 class Match(commands.Cog):
@@ -78,8 +78,7 @@ class Match(commands.Cog):
             
     async def create_new_match(self, match):
     
-        # TODO: add an env variable for matches channel
-        channel = self.bot.get_channel(1209994140969082931)
+        channel = self.bot.get_channel(MATCH_CHANNEL_ID)
         
         # get the tag for the game
         tag = next((tag for tag in channel.available_tags if tag.name == match['game']['shortcode']), None)
@@ -546,8 +545,7 @@ class Match(commands.Cog):
     async def close_match(self, match, forfeited_player=None):
             
         
-        # TODO: add an env variable for matches channel
-        channel = self.bot.get_channel(1209994140969082931)
+        channel = self.bot.get_channel(MATCH_CHANNEL_ID)
         thread = channel.get_thread(match['discord_thread_id'])
         match_id = match['match_id']
                     
@@ -610,8 +608,7 @@ class Match(commands.Cog):
             ],
         ]
                 
-        # TODO: add an env variable for matches channel
-        channel = self.bot.get_channel(1209994140969082931)
+        channel = self.bot.get_channel(MATCH_CHANNEL_ID)
         
         thread = channel.get_thread(match['discord_thread_id'])
         await send_table(thread, "Results", cols)
