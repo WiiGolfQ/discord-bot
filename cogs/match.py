@@ -15,7 +15,7 @@ class Match(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         
-    def generate_agree_list(match, boolean):
+    def generate_agree_list(self, match, boolean):
         # generate an array containing match.num_teams arrays containing match.players_per_team booleans
         return [[boolean] * match['players_per_team'] for _ in range(match['num_teams'])]
     
@@ -65,7 +65,7 @@ class Match(commands.Cog):
             if confirmation:
                 
                 await message.edit(f"## {match[f'p{loser}']['username']} has forfeited.\nClosing match...", view=None)
-                await self.close_match(match, f"{loser}")
+                await self.close_match(match)
                 
             else:
                 await message.edit("Forfeit cancelled.", view=None)
@@ -87,23 +87,24 @@ class Match(commands.Cog):
         # get the tag for the game
         tag = next((tag for tag in channel.available_tags if tag.name == match['game']['shortcode']), None)
         
+        print(match)
+        
         content = f"**{match['game']['game_name']}**\n\n__Teams__"
         
         for team in match.get('teams'):
-            content += "\n- " # bullet point
+            content += f"\n- {team.get('team_num')}: " # bullet point
             
-            for player in team.get('players'):
-                content += f"\n{player.get('username', default="???")} (<@{player.get('discord_id', default="0")}>), "
+            for tp in team.get('players'):
+                content += f"{tp['player']['username']} (<@{tp['player']['discord_id']}>), "
                 
             if len(team.get('players')) > 0: 
-                content = content[:-2] # remove the final comma
+                content = content[:-2] # remove the final comma+space
         
         thread = await channel.create_thread(
             name=match['match_id'], 
             auto_archive_duration=1440,
             applied_tags=[tag],
             content=content
-            # content=f"{match['game']['game_name']}: {match['p1']['username']} (<@{match['p1']['discord_id']}>) vs. {match['p2']['username']} (<@{match['p2']['discord_id']}>)"
         )
         
         # we also create a new vc channel for the match
@@ -111,14 +112,17 @@ class Match(commands.Cog):
         vc = await channel.guild.create_voice_channel(
             name=match['match_id'],
             category=channel.category,
-            user_limit=match.get('players_per_team') * len(match.get('teams')),
+            user_limit=match.get('players_per_team') * match.get('num_teams'),
         )
         
         # allow all players to connect and view the channel
         for team in match.get('teams'):
-            for player in team.get('players'):
-                member = channel.guild.get_member(player.get('discord_id'))
-                await vc.set_permissions(member, connect=True, view_channel=True)            
+            for tp in team.get('players'):
+                member = channel.guild.get_member(tp['player']['discord_id'])
+                if member is not None:
+                    await vc.set_permissions(member, connect=True, view_channel=True)
+                
+        #TODO: also make a private vc channel for the teams to use if players_per_team > 1            
         
         
         match['discord_thread_id'] = thread.id
@@ -152,17 +156,16 @@ class Match(commands.Cog):
         cols=[
             [
                 "⠀",
-                (f"**{i+1}**" for i in range(len(match.get('teams'))))
+                *[f"**{i+1}**" for i in range(len(match.get('teams')))]
             ],
-            (
+            *[
                 [
                     f"**__Team #{team.get('team_number')}__**",
-                    (
-                        f"{format_percent(value)}" for value in team['predictions']['place_prob'].values()
-                    )
+                    *[f"{format_percent(value)}" for value in team['predictions']['place_prob'].values()]
                 ] for team in match.get('teams')
-            )
+            ]
         ]
+    
         
         thread = self.bot.get_channel(match['discord_thread_id'])
         
@@ -200,23 +203,23 @@ class Match(commands.Cog):
         thread = self.bot.get_channel(match['discord_thread_id'])
         
         all_players_live = True
-        
-        discord_id_to_video = {}    
-            
+                    
         for team in match['teams']:
             for player in team['players']:
                 
-                video_id, timestamp = self.check_live(match, player)
+                video_id, timestamp = await self.check_live(match, player)
                 
                 if video_id:    
-                    discord_id_to_video[player['discord_id']] = [video_id, timestamp]
+                    pass
                 else:
                     all_players_live = False
                     
         try:
             res = requests.put(
                 API_URL + f"/match-videos/{thread.name}", 
+                """
                 json=discord_id_to_video
+                """ # help
             )
             
             if not res.ok:
@@ -302,8 +305,8 @@ class Match(commands.Cog):
         if ctx.author.id in match.get('player_ids'):
             # find the player amongst the teams
             for team in match.get('teams'):
-                for player in team.get('players'):
-                    if player['discord_id'] == ctx.author.id:
+                for tp in team.get('players'):
+                    if tp['player']['discord_id'] == ctx.author.id:
                         player = player
                         break
         else:
@@ -505,7 +508,7 @@ class Match(commands.Cog):
         yt_video_id = yt.get('video_id')
         
         # look for a public livestream first
-        stream_video_id, timestamp = find_video_id_and_timestamp(f"https://www.youtube.com/@{yt_handle}/live"): 
+        stream_video_id, timestamp = find_video_id_and_timestamp(f"https://www.youtube.com/@{yt_handle}/live") 
         
         # if not, look for an unlisted livestream    
         if not stream_video_id:
@@ -516,7 +519,7 @@ class Match(commands.Cog):
             await thread.send(f"{player['username']} is not live on YouTube.")
             return None, None
         
-        video_url = f"https://youtu.be/{video_id}?t={seconds_between}"
+        video_url = f"https://youtu.be/{stream_video_id}?t={seconds_between}"
             
         await thread.send(f"{match[f'p{player}']['username']} is live on YouTube at {video_url}")
         return stream_video_id, timestamp
@@ -571,13 +574,11 @@ class Match(commands.Cog):
                 "status": "Finished",
             } 
         )
-        
-        match = res.json()
-        
+               
         if not res.ok:
-            raise Exception(res.text)   
+            raise Exception(res.text) 
         
-        
+        match = res.json()  
         
         await self.send_results(match)
         
@@ -599,7 +600,6 @@ class Match(commands.Cog):
                 
             
     async def send_results(self, match):
-        
         
         elo_predictions = match['predictions']['elo']
         
