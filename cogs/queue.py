@@ -33,7 +33,7 @@ class Queue(commands.Cog):
             # temporary code for beta test season
             time = datetime.datetime.now()
             start = datetime.datetime.fromtimestamp(1710277200)
-            end = datetime.datetime.fromtimestamp(1711486800)
+            end = datetime.datetime.fromtimestamp(1712635200)
             if time < start or time > end: # march 12th 5:00pm est to march 26th 5:00pm est
                 await interaction.followup.send(":(", ephemeral=True)
                 return
