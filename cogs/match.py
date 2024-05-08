@@ -86,9 +86,7 @@ class Match(commands.Cog):
         
         # get the tag for the game
         tag = next((tag for tag in channel.available_tags if tag.name == match['game']['shortcode']), None)
-        
-        print(match)
-        
+                
         content = f"**{match['game']['game_name']}**\n\n__Teams__"
         
         for team in match.get('teams'):
@@ -160,7 +158,7 @@ class Match(commands.Cog):
             ],
             *[
                 [
-                    f"**__Team #{team.get('team_number')}__**",
+                    f"**__Team #{team.get('team_num')}__**",
                     *[f"{format_percent(value)}" for value in team['predictions']['place_prob'].values()]
                 ] for team in match.get('teams')
             ]
@@ -202,24 +200,27 @@ class Match(commands.Cog):
             
         thread = self.bot.get_channel(match['discord_thread_id'])
         
+        one_player_live = False
         all_players_live = True
+        
+        teams = match['teams']
                     
-        for team in match['teams']:
-            for player in team['players']:
+        for team in teams:
+            for tp in team['players']:
                 
-                video_id, timestamp = await self.check_live(match, player)
+                video_id, timestamp = await self.check_live(match, tp)
                 
                 if video_id:    
-                    pass
+                    tp['video_id'] = video_id
+                    tp['video_timestamp'] = timestamp
+                    one_player_live = True
                 else:
                     all_players_live = False
                     
         try:
             res = requests.put(
-                API_URL + f"/match-videos/{thread.name}", 
-                """
-                json=discord_id_to_video
-                """ # help
+                API_URL + f"/match/{thread.name}",
+                json={ "teams": teams }
             )
             
             if not res.ok:
@@ -519,7 +520,7 @@ class Match(commands.Cog):
             await thread.send(f"{player['username']} is not live on YouTube.")
             return None, None
         
-        video_url = f"https://youtu.be/{stream_video_id}?t={seconds_between}"
+        video_url = f"https://youtu.be/{stream_video_id}?t={timestamp}"
             
         await thread.send(f"{match[f'p{player}']['username']} is live on YouTube at {video_url}")
         return stream_video_id, timestamp
