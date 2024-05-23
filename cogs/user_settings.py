@@ -16,15 +16,31 @@ class UserSettings(commands.Cog):
         description="Your YouTube handle",
         required=True,
     )
-    async def youtube(self, ctx, handle):
+    @discord.option(
+        "url",
+        description="Your YouTube URL",
+        required=False,
+    )
+    async def youtube(self, ctx, handle, url):
+        def extract_id_from_url(url):
+            things_before_id = ["youtube.com/watch?v=", "youtu.be/"]
+            for thing in things_before_id:
+                if thing in url:
+                    return url.split(thing)[1].split("&")[0]
+
+            raise Exception("Invalid YouTube URL")
+
         discord_id = ctx.author.id
 
         try:
-            # youtube = {}
-            # TEMP
-            youtube = {"video_id": "DUMMY_ID"}
+            youtube = {}
+
             if handle:
                 youtube["handle"] = handle
+
+            if url:
+                video_id = extract_id_from_url(url)
+                youtube["video_id"] = video_id
 
             res = requests.post(
                 API_URL + f"/player/{discord_id}",
