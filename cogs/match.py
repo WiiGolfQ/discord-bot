@@ -234,8 +234,6 @@ class Match(commands.Cog):
                 else:
                     all_players_live = False
 
-        print(match)
-
         try:
             res = requests.put(API_URL + f"/match/{thread.name}", json=match)
         except Exception as e:
@@ -319,16 +317,15 @@ class Match(commands.Cog):
             )
             return
 
-        player = None
+        tp = None
         # check if the user of the command is playing in the match
-        if ctx.author.id in match.get("player_ids"):
-            # find the player amongst the teams
-            for team in match.get("teams"):
-                for tp in team.get("players"):
-                    if tp["player"]["discord_id"] == ctx.author.id:
-                        player = player
-                        break
-        else:
+        # find the player amongst the teams
+        for team in match.get("teams"):
+            for tp in team.get("players"):
+                if tp["player"]["discord_id"] == ctx.author.id:
+                    tp = tp
+                    break
+        if tp is None:
             await ctx.respond("You are not playing in this match", ephemeral=True)
             return
 
@@ -415,24 +412,30 @@ class Match(commands.Cog):
 
             await ctx.respond(f"Reporting a score of {score}...", ephemeral=True)
 
-        await self.report_score(match, player, score)
+        await self.report_score(match, tp, score)
 
-    async def report_score(self, match, player, score):
+    async def report_score(self, match, tp, score):
         thread = self.bot.get_channel(match["discord_thread_id"])
 
+        player = tp["player"]
+
         match_id = match["match_id"]
-        discord_id = player.get("discord_id")
+        discord_id = player["discord_id"]
 
         try:
-            res = requests.get(
-                API_URL + f"/report/{match_id}",
-                params={
-                    "player": discord_id,
-                    "score": score,
-                },
-            )
-            match = res.json()
+            change_tp = None
+            # find the tp to change
+            for team in match.get("teams"):
+                for tp in team.get("players"):
+                    if tp["player"]["discord_id"] == discord_id:
+                        change_tp = tp
+                        break
 
+            change_tp["score"] = score
+
+            res = requests.put(
+                API_URL + f"/match/{match_id}", json={"teams": match["teams"]}
+            )
             if not res.ok:
                 raise Exception(res.text)
 
@@ -440,11 +443,18 @@ class Match(commands.Cog):
             await thread.send(f"Failed to report score: {e}")
             print(f"Exception in report_score: {e}")
 
+        data = res.json()
+        # find the player's formatted score in the response
+        for team in data["teams"]:
+            for tp in team.get("players"):
+                if tp["player"]["discord_id"] == discord_id:
+                    score_formatted = tp["score_formatted"]
+
         await thread.send(
-            f"{player['username']} has reported a score of **{player['score_formatted']}**."
+            f"{player['username']} has reported a score of **{score_formatted}**."
         )
 
-        for team in match.get("teams"):
+        for team in match["teams"]:
             if team.score is None:
                 return  # don't do the agree procedure if a team doesn't have a score yet
 
