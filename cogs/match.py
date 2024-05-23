@@ -223,11 +223,9 @@ class Match(commands.Cog):
         one_player_live = False
         all_players_live = True
 
-        teams = match["teams"]
-
-        for team in teams:
+        for team in match["teams"]:
             for tp in team["players"]:
-                video_id, timestamp = await self.check_live(match, tp)
+                video_id, timestamp = await self.check_live(match, tp.get("player"))
 
                 if video_id:
                     tp["video_id"] = video_id
@@ -236,11 +234,10 @@ class Match(commands.Cog):
                 else:
                     all_players_live = False
 
-        try:
-            res = requests.put(API_URL + f"/match/{thread.name}", json={"teams": teams})
+        print(match)
 
-            if not res.ok:
-                raise Exception(res.text)
+        try:
+            res = requests.put(API_URL + f"/match/{thread.name}", json=match)
         except Exception as e:
             await thread.send(f"Failed to update match videos: {e}")
             print(f"Exception in live_procedure: {e}")
@@ -508,7 +505,7 @@ class Match(commands.Cog):
                 start_time_el = soup.find("meta", {"itemprop": "startDate"})
 
                 if start_time_el is None:  # if they are not live
-                    return None
+                    return None, None
 
                 video_id = soup.find("meta", {"itemprop": "identifier"})["content"]
 
@@ -530,13 +527,13 @@ class Match(commands.Cog):
         yt_video_id = yt.get("video_id")
 
         # look for a public livestream first
-        stream_video_id, timestamp = find_video_id_and_timestamp(
+        stream_video_id, timestamp = await find_video_id_and_timestamp(
             f"https://www.youtube.com/@{yt_handle}/live"
         )
 
         # if not, look for an unlisted livestream
         if not stream_video_id:
-            stream_video_id, timestamp = find_video_id_and_timestamp(
+            stream_video_id, timestamp = await find_video_id_and_timestamp(
                 f"https://www.youtube.com/watch?v={yt_video_id}"
             )
 
@@ -547,9 +544,7 @@ class Match(commands.Cog):
 
         video_url = f"https://youtu.be/{stream_video_id}?t={timestamp}"
 
-        await thread.send(
-            f"{match[f'p{player}']['username']} is live on YouTube at {video_url}"
-        )
+        await thread.send(f"{player['username']} is live on YouTube at {video_url}")
         return stream_video_id, timestamp
 
     @commands.slash_command()

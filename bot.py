@@ -4,16 +4,23 @@ import requests
 
 from config import API_URL, DISCORD_BOT_TOKEN
 
+
 class WGQBot(commands.Bot):
-    
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        
+
         self.games = requests.get(API_URL + "/game").json()
-        self.active_matches = requests.get(API_URL + "/match", params={"active": True}).json()
-        
+        self.active_matches = requests.get(
+            API_URL + "/match", params={"active": True}
+        ).json()
+
     async def on_ready(self):
-        print(f'{self.user.name} has connected to Discord')
+        # refresh queues
+        queue = self.get_cog("Queue")
+        await queue.create_queues()
+
+        print("READY")
+
 
 bot = WGQBot()
 
