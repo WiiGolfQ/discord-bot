@@ -43,16 +43,24 @@ async def are_you_sure(ctx, prompt="Are you sure?"):
     return view.value, message  # True if the confirm button was pressed.
 
 
-async def send_table(thread, title, cols):
+async def send_table(thread, title, cols=[], rows=[]):
     embed = Embed(title=title, color=0x00FF00)
 
-    for i in range(len(cols)):
-        # join 1-i with \n
-        embed.add_field(
-            name=cols[i][0],
-            value="\n".join([cols[i][j] for j in range(1, len(cols[i]))]),
-            inline=True,
-        )
+    if cols:
+        for i in range(len(cols)):
+            # join 1-i with \n
+            embed.add_field(
+                name=cols[i][0],
+                value="\n".join([cols[i][j] for j in range(1, len(cols[i]))]),
+                inline=True,
+            )
+    elif rows:
+        for i in range(len(rows)):
+            embed.add_field(
+                name=rows[0][i],
+                value="\n".join([rows[j][i] for j in range(1, len(rows))]),
+                inline=True,
+            )
 
     await thread.send(embed=embed)
 

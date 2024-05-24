@@ -186,7 +186,7 @@ class Match(commands.Cog):
 
         thread = self.bot.get_channel(match["discord_thread_id"])
 
-        await send_table(thread, "Place probabilities", cols)
+        await send_table(thread, "Place probabilities", cols=cols)
 
     @commands.slash_command()
     async def live(self, ctx):
@@ -516,6 +516,8 @@ class Match(commands.Cog):
 
         await thread.send(message)
 
+        await self.send_results(match)
+
     async def check_live(self, match, player):
         async def find_video_id_and_timestamp(url):
             try:
@@ -608,7 +610,7 @@ class Match(commands.Cog):
         match["agrees"][x][y] = not match["agrees"][x][y]
 
         await ctx.respond(
-            f"{tp['player']['username']}'s agreement status has been toggled to {match['agrees'][x][y]}."
+            f"{target_tp['player']['username']}'s agreement status has been toggled to {match['agrees'][x][y]}."
         )
 
         if match["agrees"] == generate_agree_list(
@@ -686,18 +688,19 @@ class Match(commands.Cog):
 
         """
 
-        cols = ["Place", "Team", "Score"] + [
-            item
-            for team in match["teams"]
-            for item in [team["place"], team["team_num"], team["score"]]
-        ]
-
-        print(cols)
+        cols = [["**Place**", "**Team**", "**Score**"]]
+        for team in match["teams"]:
+            cols.append(
+                [
+                    f"**{team['place']}**",
+                    f"Team #{team['team_num']}",
+                    team["score_formatted"],
+                ]
+            )
 
         channel = self.bot.get_channel(MATCH_CHANNEL_ID)
-
         thread = channel.get_thread(match["discord_thread_id"])
-        await send_table(thread, "Results", cols)
+        await send_table(thread, "Results", cols=cols)
 
 
 def setup(bot):
