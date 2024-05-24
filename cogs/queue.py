@@ -64,7 +64,7 @@ class Queue(commands.Cog):
     @commands.slash_command()
     async def refresh_queues(self, ctx):
         try:
-            await self.create_queues(ctx)
+            await self.create_queues()
             await ctx.respond("Queues created", ephemeral=True)
         except Exception as e:
             await ctx.respond(f"Failed to create queues: {e}", ephemeral=True)

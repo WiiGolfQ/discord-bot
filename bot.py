@@ -1,8 +1,10 @@
-from discord.ext import commands
-
 import requests
 
+from discord.ext import commands
+
 from config import API_URL, DISCORD_BOT_TOKEN
+
+from utils import generate_agree_list
 
 
 class WGQBot(commands.Bot):
@@ -13,6 +15,9 @@ class WGQBot(commands.Bot):
         self.active_matches = requests.get(
             API_URL + "/match", params={"active": True}
         ).json()
+
+        for match in self.active_matches:
+            match["agrees"] = generate_agree_list(match, True)
 
     async def on_ready(self):
         # refresh queues

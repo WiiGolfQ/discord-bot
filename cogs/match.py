@@ -8,18 +8,12 @@ from datetime import datetime, timezone
 from bs4 import BeautifulSoup
 
 from config import API_URL, MATCH_CHANNEL_ID
-from utils import are_you_sure, send_table
+from utils import are_you_sure, send_table, generate_agree_list
 
 
 class Match(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-
-    def generate_agree_list(self, match, boolean):
-        # generate an array containing match.num_teams arrays containing match.players_per_team booleans
-        return [
-            [boolean] * match["players_per_team"] for _ in range(match["num_teams"])
-        ]
 
     @commands.slash_command()
     async def forfeit(self, ctx):
@@ -143,7 +137,7 @@ class Match(commands.Cog):
 
         match["discord_thread_id"] = thread.id
 
-        match["agrees"] = self.generate_agree_list(match, False)
+        match["agrees"] = generate_agree_list(match, False)
 
         self.bot.active_matches.append(match)
 
@@ -317,15 +311,15 @@ class Match(commands.Cog):
             )
             return
 
-        tp = None
+        target_tp = None
         # check if the user of the command is playing in the match
         # find the player amongst the teams
         for team in match.get("teams"):
             for tp in team.get("players"):
                 if tp["player"]["discord_id"] == ctx.author.id:
-                    tp = tp
+                    target_tp = tp
                     break
-        if tp is None:
+        if target_tp is None:
             await ctx.respond("You are not playing in this match", ephemeral=True)
             return
 
@@ -412,7 +406,8 @@ class Match(commands.Cog):
 
             await ctx.respond(f"Reporting a score of {score}...", ephemeral=True)
 
-        await self.report_score(match, tp, score)
+        target_tp["score"] = score  # set the score in the active matches
+        await self.report_score(match, target_tp, score)
 
     async def report_score(self, match, tp, score):
         thread = self.bot.get_channel(match["discord_thread_id"])
@@ -443,9 +438,9 @@ class Match(commands.Cog):
             await thread.send(f"Failed to report score: {e}")
             print(f"Exception in report_score: {e}")
 
-        data = res.json()
+        match = res.json()
         # find the player's formatted score in the response
-        for team in data["teams"]:
+        for team in match["teams"]:
             for tp in team.get("players"):
                 if tp["player"]["discord_id"] == discord_id:
                     score_formatted = tp["score_formatted"]
@@ -455,7 +450,7 @@ class Match(commands.Cog):
         )
 
         for team in match["teams"]:
-            if team.score is None:
+            if team["score"] is None:
                 return  # don't do the agree procedure if a team doesn't have a score yet
 
         await self.agree_procedure(match)
@@ -487,7 +482,8 @@ class Match(commands.Cog):
         for m in self.bot.active_matches:
             if m["match_id"] == match_id:
                 m.update(match)
-                m["agrees"] = self.generate_agree_list(m, False)
+                # m["agrees"] = generate_agree_list(m, False)
+                m["agrees"] = [[True], [True]]  # for debug purposes
                 break
 
         message = "## All players have reported scores.\n"
@@ -572,27 +568,31 @@ class Match(commands.Cog):
 
         discord_id = ctx.author.id
 
-        if discord_id in match.get("player_ids"):
-            await ctx.respond("You are not playing in this match", ephemeral=True)
-            return
-
         if match["status"] != "Waiting for agrees":
             await ctx.respond("Both players have not submitted scores", ephemeral=True)
             return
 
         # find the player's position in match teams
+        x, y = None, None
+        target_tp = None
         for i, team in enumerate(match.get("teams")):
-            for j, player in enumerate(team.get("players")):
-                if player.get("discord_id") == discord_id:
-                    # toggle the player's agreement status
-                    match["agrees"][i][j] = not match["agrees"][i][j]
-                    break
+            for j, tp in enumerate(team.get("players")):
+                if tp["player"]["discord_id"] == discord_id:
+                    target_tp = tp
+                    x, y = i, j
+
+        if target_tp is None:  # if the person using the command isnt in the match
+            await ctx.respond("You are not playing in this match", ephemeral=True)
+            return
+
+        # toggle the player's agreement status
+        match["agrees"][x][y] = not match["agrees"][x][y]
 
         await ctx.respond(
-            f"{player.get('username')}'s agreement status has been toggled to {match['agrees'][player - 1]}."
+            f"{tp['player']['username']}'s agreement status has been toggled to {match['agrees'][x][y]}."
         )
 
-        if match["agrees"] == self.generate_agree_list(
+        if match["agrees"] == generate_agree_list(
             match, True
         ):  # if everyone has agreed
             await ctx.send(
