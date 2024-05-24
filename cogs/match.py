@@ -162,6 +162,14 @@ class Match(commands.Cog):
         def format_percent(prob):
             return f"{prob:.2%}"
 
+        """
+        
+        (blank) Team #1  Team #2
+        1        12.3%     45.6%
+        2        34.5%     67.8%
+        
+        """
+
         cols = [
             ["⠀", *[f"**{i+1}**" for i in range(len(match.get("teams")))]],
             *[
@@ -406,7 +414,6 @@ class Match(commands.Cog):
 
             await ctx.respond(f"Reporting a score of {score}...", ephemeral=True)
 
-        target_tp["score"] = score  # set the score in the active matches
         await self.report_score(match, target_tp, score)
 
     async def report_score(self, match, tp, score):
@@ -418,36 +425,48 @@ class Match(commands.Cog):
         discord_id = player["discord_id"]
 
         try:
-            change_tp = None
-            # find the tp to change
+            # find the tp to change and change their score
             for team in match.get("teams"):
                 for tp in team.get("players"):
                     if tp["player"]["discord_id"] == discord_id:
-                        change_tp = tp
+                        tp["score"] = score
                         break
 
-            change_tp["score"] = score
+            # delete score info from every other player
+            # so its not updated in the database
+            teams_copy = match.get("teams").copy()
+
+            for team in teams_copy:
+                team["players"] = [
+                    {
+                        k: v
+                        for k, v in tp.items()
+                        if k != "score" or tp["player"]["discord_id"] == discord_id
+                    }
+                    for tp in team["players"]
+                ]
 
             res = requests.put(
-                API_URL + f"/match/{match_id}", json={"teams": match["teams"]}
+                API_URL + f"/match/{match_id}",
+                json={"teams": teams_copy},
             )
             if not res.ok:
                 raise Exception(res.text)
 
+            match = res.json()
+            # find the player's formatted score in the response
+            for team in match["teams"]:
+                for tp in team.get("players"):
+                    if tp["player"]["discord_id"] == discord_id:
+                        score_formatted = tp["score_formatted"]
+
+            await thread.send(
+                f"{player['username']} has reported a score of **{score_formatted}**."
+            )
+
         except Exception as e:
             await thread.send(f"Failed to report score: {e}")
             print(f"Exception in report_score: {e}")
-
-        match = res.json()
-        # find the player's formatted score in the response
-        for team in match["teams"]:
-            for tp in team.get("players"):
-                if tp["player"]["discord_id"] == discord_id:
-                    score_formatted = tp["score_formatted"]
-
-        await thread.send(
-            f"{player['username']} has reported a score of **{score_formatted}**."
-        )
 
         for team in match["teams"]:
             if team["score"] is None:
@@ -657,8 +676,23 @@ class Match(commands.Cog):
         #     ],
         # ]
 
-        # temp
-        cols = []
+        """
+        COLUMNS:
+
+        Place              1           2
+        Team num           2           1
+        Score              999         888
+        ...
+
+        """
+
+        cols = ["Place", "Team", "Score"] + [
+            item
+            for team in match["teams"]
+            for item in [team["place"], team["team_num"], team["score"]]
+        ]
+
+        print(cols)
 
         channel = self.bot.get_channel(MATCH_CHANNEL_ID)
 

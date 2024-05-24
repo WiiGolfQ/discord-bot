@@ -28,8 +28,6 @@ class Queue(commands.Cog):
         async def button_callback(self, button, interaction):
             await interaction.response.defer(ephemeral=True)
 
-            new_matches = []
-
             try:
                 # add the user to the game's queue
                 res = requests.get(
@@ -42,24 +40,23 @@ class Queue(commands.Cog):
                 # the endpoint returns newly created matches
                 new_matches = res.json()
 
+                if new_matches:  # if new_matches is not empty
+                    # create new matches if we have any
+                    match_cog = self.bot.get_cog("Match")
+                    for match in new_matches:
+                        await match_cog.create_new_match(match)
+                elif self.game_name:  # if we're not leaving queue
+                    await interaction.followup.send(
+                        f"Joined {self.game_name} queue", ephemeral=True
+                    )
+                else:
+                    await interaction.followup.send("Left queue", ephemeral=True)
+
             except Exception as e:
                 await interaction.followup.send(
-                    f"Failed to join {self.game_name} queue: {e}", ephemeral=True
+                    f"Failed to join queue: {e}", ephemeral=True
                 )
                 # raise e
-
-            if len(new_matches) != 0:
-                # create new matches if we have any
-                match_cog = self.bot.get_cog("Match")
-                for match in new_matches:
-                    await match_cog.create_new_match(match)
-
-            elif self.game_name:  # if we're not leaving queue
-                await interaction.followup.send(
-                    f"Joined {self.game_name} queue", ephemeral=True
-                )
-            else:
-                await interaction.followup.send("Left queue", ephemeral=True)
 
     @commands.slash_command()
     async def refresh_queues(self, ctx):
