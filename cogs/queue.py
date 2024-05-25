@@ -30,22 +30,26 @@ class Queue(commands.Cog):
 
             try:
                 # add the user to the game's queue
-                res = requests.get(
-                    API_URL + f"/queue/{self.game_id}/{interaction.user.id}"
+                res = requests.patch(
+                    API_URL + f"/player/{interaction.user.id}",
+                    json={
+                        "queuing_for": self.game_id,
+                    },
                 )
 
                 if not res.ok:
                     raise Exception(res.text)
 
-                # the endpoint returns newly created matches
-                new_matches = res.json()
+                # # the endpoint returns newly created matches
+                # new_matches = res.json()
 
-                if new_matches:  # if new_matches is not empty
-                    # create new matches if we have any
-                    match_cog = self.bot.get_cog("Match")
-                    for match in new_matches:
-                        await match_cog.create_new_match(match)
-                elif self.game_name:  # if we're not leaving queue
+                # if new_matches:  # if new_matches is not empty
+                #     # create new matches if we have any
+                #     match_cog = self.bot.get_cog("Match")
+                #     for match in new_matches:
+                #         await match_cog.create_new_match(match)
+
+                if self.game_name:  # if we're not leaving queue
                     await interaction.followup.send(
                         f"Joined {self.game_name} queue", ephemeral=True
                     )
@@ -57,6 +61,13 @@ class Queue(commands.Cog):
                     f"Failed to join queue: {e}", ephemeral=True
                 )
                 # raise e
+
+            new_matches = requests.get(API_URL + "/matchmake/").json()
+            if new_matches:  # if new_matches is not empty
+                # create new matches if we have any
+                match_cog = self.bot.get_cog("Match")
+                for match in new_matches:
+                    await match_cog.create_new_match(match)
 
     @commands.slash_command()
     async def refresh_queues(self, ctx):
