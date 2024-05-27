@@ -12,47 +12,26 @@ class Queue(commands.Cog):
         self.bot = bot
 
     class QueueView(discord.ui.View):
-        def __init__(self, bot, game):
+        def __init__(self, bot, in_queue):
             super().__init__(timeout=None)
-
+            self.in_queue = in_queue
             self.bot = bot
-
-            if game:
-                self.game_id = game["game_id"]
-                self.game_name = game["game_name"]
-            else:
-                self.game_id = 0
-                self.game_name = None
 
         @discord.ui.button(emoji="⛳", style=discord.ButtonStyle.secondary)
         async def button_callback(self, button, interaction):
             await interaction.response.defer(ephemeral=True)
 
             try:
-                # add the user to the game's queue
                 res = requests.patch(
                     API_URL + f"/player/{interaction.user.id}",
-                    json={
-                        "queuing_for": self.game_id,
-                    },
+                    json={"in_queue": self.in_queue},
                 )
 
                 if not res.ok:
                     raise Exception(res.text)
 
-                # # the endpoint returns newly created matches
-                # new_matches = res.json()
-
-                # if new_matches:  # if new_matches is not empty
-                #     # create new matches if we have any
-                #     match_cog = self.bot.get_cog("Match")
-                #     for match in new_matches:
-                #         await match_cog.create_new_match(match)
-
-                if self.game_name:  # if we're not leaving queue
-                    await interaction.followup.send(
-                        f"Joined {self.game_name} queue", ephemeral=True
-                    )
+                if self.in_queue:
+                    await interaction.followup.send("Joined queue", ephemeral=True)
                 else:
                     await interaction.followup.send("Left queue", ephemeral=True)
 
@@ -82,14 +61,8 @@ class Queue(commands.Cog):
 
         await channel.purge()
 
-        # create queues for each game
-        for game in self.bot.games:
-            await channel.send(
-                f"{game['game_name']} queue", view=self.QueueView(self.bot, game)
-            )
-
-        # also send a leave queue
-        await channel.send("Leave queue", view=self.QueueView(self.bot, None))
+        await channel.send("Join queue", view=self.QueueView(self.bot, True))
+        await channel.send("Leave queue", view=self.QueueView(self.bot, False))
 
 
 def setup(bot):
