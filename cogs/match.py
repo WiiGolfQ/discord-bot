@@ -118,23 +118,6 @@ class Match(commands.Cog):
             content=content,
         )
 
-        # we also create a new vc channel for the match
-        # this is a public one for everyone
-        vc = await channel.guild.create_voice_channel(
-            name=match["match_id"],
-            category=channel.category,
-            user_limit=match.get("players_per_team") * match.get("num_teams"),
-        )
-
-        # allow all players to connect and view the channel
-        for team in match.get("teams"):
-            for tp in team.get("players"):
-                member = channel.guild.get_member(tp["player"]["discord_id"])
-                if member is not None:
-                    await vc.set_permissions(member, connect=True, view_channel=True)
-
-        # TODO: also make a private vc channel for the teams to use if players_per_team > 1
-
         match["discord_thread_id"] = thread.id
 
         match["agrees"] = generate_agree_list(match, False)
