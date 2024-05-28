@@ -34,6 +34,7 @@ cogs_list = [
     "cogs.match",
     "cogs.user_settings",
     "cogs.leaderboard",
+    "cogs.test",
 ]
 
 for cog in cogs_list:

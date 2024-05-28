@@ -1,9 +1,22 @@
 import discord
 from discord.ext import commands
+from discord.ui import Select
 
 import requests
 
 from config import API_URL
+
+class QueueForView(discord.ui.View):
+    def __init__(self, bot):
+        super().__init__(timeout=None)
+        self.bot = bot
+        self.games = [(game.game_name, game.game_id) for game in self.bot.games]
+    
+    @discord.ui.select(
+        placeholder="I want to play... (select one or more games)",
+        options=self.games
+    )
+    
 
 
 class UserSettings(commands.Cog):
@@ -79,6 +92,7 @@ class UserSettings(commands.Cog):
         #     if discord_id == match['p2']['discord_id']:
         #         match['p2']['yt_username'] = yt_username
         #         break # theoretically someone should only be in one match at a time
+    
 
 
 def setup(bot):
