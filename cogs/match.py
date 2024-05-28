@@ -137,8 +137,6 @@ class Match(commands.Cog):
 
         # await thread.send(f"<@{match['p1']['discord_id']}> <@{match['p2']['discord_id']}> Your {match['game']['game_name']} match is ready.")
 
-        await self.send_predictions(match)
-
         await self.live_procedure(match)
 
     @commands.slash_command()
