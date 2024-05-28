@@ -1,22 +1,68 @@
 import discord
 from discord.ext import commands
-from discord.ui import Select
+from discord.ui import Select, View
 
 import requests
 
 from config import API_URL
 
-class QueueForView(discord.ui.View):
+
+class QueueForView(View):
+    class QueueForSelect(Select):
+        def __init__(self, bot):
+            self.bot = bot
+
+            super().__init__(
+                placeholder="I want to play... (select 1 or more)",
+                min_values=1,
+                max_values=len(self.bot.games),
+                options=[
+                    discord.SelectOption(label=game["game_name"])
+                    for game in self.bot.games
+                ],
+            )
+
+        async def callback(self, interaction: discord.Interaction):
+            await interaction.response.defer(ephemeral=True)
+
+            names = self.values
+
+            if "NSS Score (9 Hole Random)" in names and len(names) > 1:
+                await interaction.followup.send(
+                    "NSS Score (9 Hole Random) must be alone", ephemeral=True
+                )
+                return
+
+            queues_for = []
+            for name in names:
+                # find the game in self.bot.games
+                found = next(
+                    (game for game in self.bot.games if game["game_name"] == name), None
+                )
+                queues_for.append(found["game_id"])
+
+            try:
+                res = requests.patch(
+                    API_URL + f"/player/{interaction.user.id}",
+                    json={"queues_for": queues_for},
+                )
+
+                if not res.ok:
+                    raise Exception(res.text)
+
+                await interaction.followup.send(
+                    f"You will queue for {', '.join(names)}", ephemeral=True
+                )
+            except Exception as e:
+                await interaction.followup.send(
+                    f"Failed to select games: {e}", ephemeral=True
+                )
+
     def __init__(self, bot):
-        super().__init__(timeout=None)
         self.bot = bot
-        self.games = [(game.game_name, game.game_id) for game in self.bot.games]
-    
-    @discord.ui.select(
-        placeholder="I want to play... (select one or more games)",
-        options=self.games
-    )
-    
+        super().__init__()
+
+        self.add_item(self.QueueForSelect(bot))
 
 
 class UserSettings(commands.Cog):
@@ -81,18 +127,13 @@ class UserSettings(commands.Cog):
         except Exception as e:
             await ctx.respond(f"Failed to link YouTube account: {e}", ephemeral=True)
 
-        # TODO: fix
-        # # change the yt username for any match this player is in
-        # for match in self.bot.active_matches:
-
-        #     if discord_id == match['p1']['discord_id']:
-        #         match['p1']['yt_username'] = yt_username
-        #         break # theoretically someone should only be in one match at a time
-
-        #     if discord_id == match['p2']['discord_id']:
-        #         match['p2']['yt_username'] = yt_username
-        #         break # theoretically someone should only be in one match at a time
-    
+    @discord.slash_command()
+    async def queue_for(self, ctx):
+        await ctx.respond(
+            "Select the game you want to queue for",
+            view=QueueForView(self.bot),
+            ephemeral=True,
+        )
 
 
 def setup(bot):
