@@ -507,11 +507,6 @@ class Match(commands.Cog):
 
         message = "## All players have reported scores.\n"
 
-        # if winner != loser:
-        #     message += f"{match[f'p{winner}']['username']} has won the match with a score of **{match[f'p{winner}_score_formatted']}**, beating {match[f'p{loser}']['username']}'s score of **{match[f'p{loser}_score_formatted']}**.\n\n"
-        # else:
-        #     message += f"The match is a draw, with both players scoring **{match['p1_score']}**.\n\n"
-
         message += "Use **/agree** to confirm the results. Use **/disagree** to dispute the results. Use **/report** again to resubmit your score."
 
         await thread.send(message)
