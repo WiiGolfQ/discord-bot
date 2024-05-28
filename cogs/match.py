@@ -141,36 +141,6 @@ class Match(commands.Cog):
 
         await self.live_procedure(match)
 
-    async def send_predictions(self, match):
-        def format_percent(prob):
-            return f"{prob:.2%}"
-
-        """
-        
-        (blank) Team #1  Team #2
-        1        12.3%     45.6%
-        2        34.5%     67.8%
-        
-        """
-
-        cols = [
-            ["⠀", *[f"**{i+1}**" for i in range(len(match.get("teams")))]],
-            *[
-                [
-                    f"**__Team #{team.get('team_num')}__**",
-                    *[
-                        f"{format_percent(value)}"
-                        for value in team["predictions"]["place_prob"].values()
-                    ],
-                ]
-                for team in match.get("teams")
-            ],
-        ]
-
-        thread = self.bot.get_channel(match["discord_thread_id"])
-
-        await send_table(thread, "Place probabilities", cols=cols)
-
     @commands.slash_command()
     async def live(self, ctx):
         await ctx.defer()
