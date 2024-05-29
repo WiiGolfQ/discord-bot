@@ -63,7 +63,6 @@ class Leaderboard(commands.Cog):
                 await channel.send(
                     f"Failed to get leaderboard for {game['game_name']}: {e}"
                 )
-                # raise e
 
 
 def setup(bot):

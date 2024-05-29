@@ -194,12 +194,24 @@ class Match(commands.Cog):
             print(f"Exception in live_procedure: {e}")
             return
 
-        if all_players_live:
+        game = next(
+            g for g in self.bot.games if g["game_id"] == match["game"]["game_id"]
+        )
+        require_all = game["require_all_livestreams"]
+
+        if all_players_live or (not require_all and one_player_live):
             await self.ongoing_procedure(match)
         else:
-            await thread.send(
-                "## All players are not live on YouTube.\nUse **/live** to check again. Use **/youtube** to change your YouTube username."
-            )
+            message = ""
+
+            if require_all:
+                message += "## Not all players are live."
+            else:
+                message += "## No players are live."
+
+            message += "\nUse **/live** to check again. Use **/youtube** to change your YouTube information."
+
+            await thread.send(message)
 
     async def ongoing_procedure(self, match):
         thread = self.bot.get_channel(match["discord_thread_id"])
