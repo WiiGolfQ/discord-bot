@@ -29,7 +29,7 @@ class Queue(commands.Cog):
             print(Queue.counter)
             return
 
-        if len(Queue.players_queued) < 2:
+        if not Queue.players_queued:
             return
 
         new_matches = requests.get(API_URL + "/matchmake/").json()
