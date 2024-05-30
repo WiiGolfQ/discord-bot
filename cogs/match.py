@@ -97,10 +97,9 @@ class Match(commands.Cog):
                 await message.edit("Forfeit cancelled.", view=None)
                 return
 
-            # if we get a response back that the match is finished, close the match
-            if match["status"] == "Finished":
-                await ctx.send("## The match has finished.\nClosing match...")
-                await self.close_match(match)
+            # if we get a response back that everyone has a place, go to agree procedure
+            if match["status"] == "Waiting for agrees":
+                await self.agree_procedure(match)
 
         except Exception as e:
             raise e
@@ -419,19 +418,26 @@ class Match(commands.Cog):
 
             # delete score info from every other player
             # so its not updated in the database
-            teams_copy = match.get("teams").copy()
+            teams_copy = [
+                {
+                    "pk": team["pk"],
+                    "players": [
+                        {
+                            k: v
+                            for k, v in tp.items()
+                            if k == "pk"
+                            or (
+                                k == "score"
+                                and tp["player"]["discord_id"] == discord_id
+                            )
+                        }
+                        for tp in team["players"]
+                    ],
+                }
+                for team in match["teams"]
+            ]
 
-            for team in teams_copy:
-                team["players"] = [
-                    {
-                        k: v
-                        for k, v in tp.items()
-                        if k != "score" or tp["player"]["discord_id"] == discord_id
-                    }
-                    for tp in team["players"]
-                ]
-
-            res = requests.put(
+            res = requests.patch(
                 API_URL + f"/match/{match_id}",
                 json={"teams": teams_copy},
             )
@@ -453,41 +459,18 @@ class Match(commands.Cog):
             await thread.send(f"Failed to report score: {e}")
             print(f"Exception in report_score: {e}")
 
-        for team in match["teams"]:
-            if team["score"] is None:
-                return  # don't do the agree procedure if a team doesn't have a score yet
-
-        await self.agree_procedure(match)
+        if match["status"] == "Waiting for agrees":
+            await self.agree_procedure(match)
 
     async def agree_procedure(self, match):
         thread = self.bot.get_channel(match["discord_thread_id"])
 
         match_id = match["match_id"]
 
-        try:
-            # update status in database
-            res = requests.put(
-                API_URL + f"/match/{match_id}",
-                json={
-                    "status": "Waiting for agrees",
-                },
-            )
-
-            if not res.ok:
-                raise Exception(res.text)
-
-            match = res.json()
-
-        except Exception as e:
-            await thread.send(f"Failed to update match status: {e}")
-            print(f"Exception in agree_procedure: {e}")
-
         # replace match in active_matches with the updated match
         for m in self.bot.active_matches:
             if m["match_id"] == match_id:
-                m.update(match)
-                # m["agrees"] = generate_agree_list(m, False)
-                m["agrees"] = [[True], [True]]  # for debug purposes
+                m["agrees"] = generate_agree_list(m, False)
                 break
 
         message = "## All players have reported scores.\n"
@@ -575,15 +558,21 @@ class Match(commands.Cog):
 
         # find the player's position in match teams
         x, y = None, None
+        target_team = None
         target_tp = None
         for i, team in enumerate(match.get("teams")):
             for j, tp in enumerate(team.get("players")):
                 if tp["player"]["discord_id"] == discord_id:
+                    target_team = team
                     target_tp = tp
                     x, y = i, j
 
         if target_tp is None:  # if the person using the command isnt in the match
             await ctx.respond("You are not playing in this match", ephemeral=True)
+            return
+
+        if target_team["forfeited"]:
+            await ctx.respond("Your team has forfeited", ephemeral=True)
             return
 
         # toggle the player's agreement status
@@ -645,9 +634,9 @@ class Match(commands.Cog):
 
         """
 
-        cols = [["**Place**", "**Team**", "**Score**"]]
+        rows = [["**__Place__**", "**__Team__**", "**__Score__**"]]
         for team in match["teams"]:
-            cols.append(
+            rows.append(
                 [
                     f"**{team['place']}**",
                     team["team_num"],
@@ -657,7 +646,7 @@ class Match(commands.Cog):
 
         channel = self.bot.get_channel(MATCH_CHANNEL_ID)
         thread = channel.get_thread(match["discord_thread_id"])
-        await send_table(thread, "Results", cols=cols)
+        await send_table(thread, "Results", rows=rows)
 
         """
     
@@ -669,7 +658,7 @@ class Match(commands.Cog):
 
         """
 
-        rows = [["**Team**", "**Player**", "**New elo**"]]
+        rows = [["**__Team__**", "**__Player__**", "**__New elo__**"]]
         for team in match["teams"]:
             for tp in team["players"]:
                 rows.append(

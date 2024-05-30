@@ -55,7 +55,7 @@ async def send_table(thread, title, cols=[], rows=[]):
                 inline=True,
             )
     elif rows:
-        for i in range(len(rows)):
+        for i in range(len(rows[0])):
             embed.add_field(
                 name=rows[0][i],
                 value="\n".join([rows[j][i] for j in range(1, len(rows))]),
@@ -67,4 +67,5 @@ async def send_table(thread, title, cols=[], rows=[]):
 
 def generate_agree_list(match, boolean):
     # generate an array containing match.num_teams arrays containing match.players_per_team booleans
-    return [[boolean] * match["players_per_team"] for _ in range(match["num_teams"])]
+    didnt_forfeit = len([team for team in match["teams"] if not team["forfeited"]])
+    return [[boolean] * match["players_per_team"] for _ in range(didnt_forfeit)]
