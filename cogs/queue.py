@@ -14,8 +14,9 @@ class Queue(commands.Cog):
 
     def process_joined_player(discord_id):
         if discord_id not in Queue.players_queued:
-            Queue.counter += int(25 * (0.75 ** len(Queue.players_queued)))
             Queue.players_queued.add(discord_id)
+            if len(Queue.players_queued) > 1:
+                Queue.counter += int(25 * (0.75 ** (len(Queue.players_queued) - 1)))
 
     def __init__(self, bot):
         self.bot = bot
@@ -28,7 +29,7 @@ class Queue(commands.Cog):
             print(Queue.counter)
             return
 
-        if not Queue.players_queued:
+        if len(Queue.players_queued) < 2:
             return
 
         new_matches = requests.get(API_URL + "/matchmake/").json()
