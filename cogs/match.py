@@ -152,11 +152,15 @@ class Match(commands.Cog):
             )
             return
 
-        # get the match by match_id
+        # update the match and replace it in active_matches
         match_id = int(ctx.channel.name)
-        match = next(
-            (m for m in self.bot.active_matches if m["match_id"] == match_id), None
-        )
+        try:
+            replace = requests.get(API_URL + f"/match/{ctx.channel.name}").json()
+        except Exception as e:
+            await ctx.respond(f"Failed to get match: {e}", ephemeral=True)
+            return
+        match = next(m for m in self.bot.active_matches if m["match_id"] == match_id)
+        match.update(replace)
 
         if match is None:
             await ctx.respond("This match is not active", ephemeral=True)
@@ -614,30 +618,7 @@ class Match(commands.Cog):
                 break
 
     async def send_results(self, match):
-        # elo_predictions = match["predictions"]["elo"]
-
-        # result = match["result"]
-
-        # cols = [
-        #     [
-        #         "⠀",
-        #         "**Elo before**",
-        #         "**Elo after**",
-        #     ],
-        #     [
-        #         f"__**{match['p1']['username']}**__",
-        #         f"{match['p1_mu_before']}",
-        #         f"{elo_predictions[result][0][0]} ({elo_predictions[result][0][1]})", # new elo (delta)
-        #     ],
-        #     [
-        #         f"__**{match['p2']['username']}**__",
-        #         f"{match['p2_mu_before']}",
-        #         f"{elo_predictions[result][1][0]} ({elo_predictions[result][1][1]})",
-        #     ],
-        # ]
-
         """
-        COLUMNS:
 
         Place              1           2
         Team num           2           1
@@ -659,6 +640,34 @@ class Match(commands.Cog):
         channel = self.bot.get_channel(MATCH_CHANNEL_ID)
         thread = channel.get_thread(match["discord_thread_id"])
         await send_table(thread, "Results", cols=cols)
+
+        """
+    
+        Team 1       xx_Player1_xx       1500 (+150)
+                     xx_Player2_xx       1600 (+100)
+        Team 2       xx_Player3_xx       1500 (+150)
+                     xx_Player4_xx       1600 (+100)
+        ...
+
+        """
+
+        rows = [["**Team**", "**Player**", "**New elo**"]]
+        for team in match["teams"]:
+            for tp in team["players"]:
+                rows.append(
+                    [
+                        "⠀",
+                        tp["player"]["username"],
+                        f"{tp['mu_after']} ({tp['mu_delta']})",
+                    ]
+                )
+
+        i = 1
+        for team in match["teams"]:
+            rows[i][0] = f"**{team['team_num']}**"
+            i += match["players_per_team"]
+
+        await send_table(thread, "Elo changes", rows=rows)
 
 
 def setup(bot):
