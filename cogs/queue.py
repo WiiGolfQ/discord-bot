@@ -26,7 +26,6 @@ class Queue(commands.Cog):
     async def matchmake(self):
         if Queue.counter > 0:
             Queue.counter -= 1
-            print(Queue.counter)
             return
 
         if not Queue.players_queued:
