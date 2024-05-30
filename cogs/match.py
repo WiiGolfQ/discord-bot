@@ -632,7 +632,7 @@ class Match(commands.Cog):
             cols.append(
                 [
                     f"**{team['place']}**",
-                    f"Team #{team['team_num']}",
+                    team["team_num"],
                     team["score_formatted"],
                 ]
             )
