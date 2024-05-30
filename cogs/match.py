@@ -43,22 +43,17 @@ class Match(commands.Cog):
                 None,
             )
 
-            # res = requests.get(
-            #     API_URL + f"/match/{ctx.channel.name}/"
-            # )
-
-            # if not res.ok:
-            #     raise Exception(res.text)
-
-            # match = res.json()
-
-            if discord_id == match["p1"]["discord_id"]:
-                winner = 2
-                loser = 1
-            elif discord_id == match["p2"]["discord_id"]:
-                winner = 1
-                loser = 2
-            else:
+            target_team = None
+            target_tp = None
+            # check if the user of the command is playing in the match
+            # find the player amongst the teams
+            for team in match.get("teams"):
+                for tp in team.get("players"):
+                    if tp["player"]["discord_id"] == ctx.author.id:
+                        target_team = team
+                        target_tp = tp
+                        break
+            if target_tp is None:
                 await ctx.respond("You are not playing in this match", ephemeral=True)
                 return
 
@@ -67,23 +62,48 @@ class Match(commands.Cog):
             confirmation, message = await are_you_sure(ctx)
 
             if confirmation:
+                data = {}
+                data["teams"] = [
+                    {
+                        "pk": team["pk"],
+                        "forfeited": True if team == target_team else team["forfeited"],
+                    }
+                    for team in match["teams"]
+                ]
+
+                try:
+                    res = requests.patch(
+                        API_URL + f"/match/{match['match_id']}",
+                        json=data,
+                    )
+                    if not res.ok:
+                        raise Exception(res.text)
+
+                    replace = res.json()
+                    match.update(replace)
+
+                except Exception as e:
+                    await message.edit(
+                        f"Failed to forfeit match: {e}",
+                        view=None,
+                    )
+                    return
+
                 await message.edit(
-                    f"## {match[f'p{loser}']['username']} has forfeited.\nClosing match...",
+                    f"Team {target_team['team_num']} has forfeited.",
                     view=None,
                 )
-                await self.close_match(match)
-
             else:
                 await message.edit("Forfeit cancelled.", view=None)
                 return
 
+            # if we get a response back that the match is finished, close the match
+            if match["status"] == "Finished":
+                await ctx.send("## The match has finished.\nClosing match...")
+                await self.close_match(match)
+
         except Exception as e:
             raise e
-            # if res:
-            #     soup = BeautifulSoup(res.text, 'html.parser')
-            #     await ctx.respond(f"Failed to forfeit match: {soup.find('body').text[:1950]}", ephemeral=True)
-            # else:
-            #     await ctx.respond(f"Failed to forfeit match: {e}", ephemeral=True)
 
     async def create_new_match(self, match):
         channel = self.bot.get_channel(MATCH_CHANNEL_ID)
@@ -134,8 +154,6 @@ class Match(commands.Cog):
         except Exception as e:
             await thread.send(f"Failed to update match thread: {e}")
             print(f"Exception in create_new_match: {e}")
-
-        # await thread.send(f"<@{match['p1']['discord_id']}> <@{match['p2']['discord_id']}> Your {match['game']['game_name']} match is ready.")
 
         await self.live_procedure(match)
 
