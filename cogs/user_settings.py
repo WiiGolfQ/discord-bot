@@ -82,7 +82,11 @@ class UserSettings(commands.Cog):
     )
     async def youtube(self, ctx, handle, url):
         def extract_id_from_url(url):
-            things_before_id = ["youtube.com/watch?v=", "youtu.be/"]
+            things_before_id = [
+                "youtube.com/watch?v=",
+                "youtube.com/live/",
+                "youtu.be/",
+            ]
             for thing in things_before_id:
                 if thing in url:
                     return url.split(thing)[1].split("&")[0]

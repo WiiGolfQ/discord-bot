@@ -470,6 +470,7 @@ class Match(commands.Cog):
         # replace match in active_matches with the updated match
         for m in self.bot.active_matches:
             if m["match_id"] == match_id:
+                m["status"] = "Waiting for agrees"
                 m["agrees"] = generate_agree_list(m, False)
                 break
 
