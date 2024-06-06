@@ -105,14 +105,13 @@ class UserSettings(commands.Cog):
                 video_id = extract_id_from_url(url)
                 youtube["video_id"] = video_id
 
-            res = requests.post(
-                API_URL + f"/player/{discord_id}",
-                json={
-                    "discord_id": discord_id,
-                    "username": ctx.author.name,
-                    "youtube": youtube,
-                },
-            )
+            data = {
+                "discord_id": discord_id,
+                "username": ctx.author.name,
+                "youtube": youtube,
+            }
+
+            res = requests.post(API_URL + f"/player/{discord_id}", json=data)
 
             if not res.ok:
                 print(res.status_code)
