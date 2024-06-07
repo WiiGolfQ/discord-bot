@@ -12,6 +12,40 @@ from utils import are_you_sure, send_table, generate_agree_list
 
 
 class Match(commands.Cog):
+    class ReportScoreModal(discord.ui.Modal):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.add_item(
+                discord.ui.InputText(label="Score", placeholder="Enter your score")
+            )
+
+        async def callback(self, interaction: discord.Interaction):
+            pass
+
+    class ReportTimeModal(discord.ui.Modal):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.add_item(
+                discord.ui.InputText(
+                    label="Debug info: start",
+                    placeholder="Enter debug info from the start frame",
+                )
+            )
+            self.add_item(
+                discord.ui.InputText(
+                    label="Debug info: end",
+                    placeholder="Enter debug info from the start frame",
+                )
+            )
+            self.add_item(
+                discord.ui.InputText(
+                    label="FPS", placeholder="Enter FPS of the video (30 or 60)"
+                )
+            )
+
+        async def callback(self, interaction: discord.Interaction):
+            pass
+
     def __init__(self, bot):
         self.bot = bot
 
@@ -493,9 +527,14 @@ class Match(commands.Cog):
                 # or your vods if you're not streaming
                 # we're looking for this meta element to see if you are streaming
                 # and also keep it for later since we need the start date
-                start_time_el = soup.find("meta", {"itemprop": "startDate"})
+                start_time_el = soup.find("meta", {"itemprop": "endDate"})
 
                 if start_time_el is None:  # if they are not live
+                    return None, None
+
+                end_time_el = soup.find("meta", {"itemprop": "endDate"})
+
+                if end_time_el:  # if the stream ended
                     return None, None
 
                 video_id = soup.find("meta", {"itemprop": "identifier"})["content"]
