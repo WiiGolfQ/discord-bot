@@ -21,7 +21,8 @@ class Match(commands.Cog):
             )
 
         async def callback(self, interaction: discord.Interaction):
-            pass
+            score = self.children[0].value
+            await Match.calculate_score(self.cog, interaction, score=score)
 
     class ReportTimeModal(discord.ui.Modal):
         def __init__(self, cog, *args, **kwargs):
