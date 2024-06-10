@@ -541,7 +541,7 @@ class Match(commands.Cog):
                 # or your vods if you're not streaming
                 # we're looking for this meta element to see if you are streaming
                 # and also keep it for later since we need the start date
-                start_time_el = soup.find("meta", {"itemprop": "endDate"})
+                start_time_el = soup.find("meta", {"itemprop": "startDate"})
 
                 if start_time_el is None:  # if they are not live
                     return None, None
