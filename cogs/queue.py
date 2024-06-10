@@ -75,14 +75,6 @@ class Queue(commands.Cog):
                 )
                 # raise e
 
-    @commands.slash_command()
-    async def refresh_queues(self, ctx):
-        try:
-            await self.create_queues()
-            await ctx.respond("Queues created", ephemeral=True)
-        except Exception as e:
-            await ctx.respond(f"Failed to create queues: {e}", ephemeral=True)
-
     async def create_queues(self):
         channel = self.bot.get_channel(QUEUE_CHANNEL_ID)
 
