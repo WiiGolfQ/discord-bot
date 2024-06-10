@@ -9,36 +9,18 @@ from config import API_URL, QUEUE_CHANNEL_ID
 
 
 class Queue(commands.Cog):
-    players_queued = set()
-    counter = 0
-
-    def process_joined_player(discord_id):
-        if discord_id not in Queue.players_queued:
-            Queue.players_queued.add(discord_id)
-            if len(Queue.players_queued) > 1:
-                Queue.counter += int(25 * (0.75 ** (len(Queue.players_queued) - 1)))
-
     def __init__(self, bot):
         self.bot = bot
         self.matchmake.start()
 
     @tasks.loop(seconds=5)
     async def matchmake(self):
-        if Queue.counter > 0:
-            Queue.counter -= 1
-            return
-
-        if not Queue.players_queued:
-            return
-
         new_matches = requests.get(API_URL + "/matchmake/").json()
         if new_matches:  # if new_matches is not empty
             # create new matches if we have any
             match_cog = self.bot.get_cog("Match")
             for match in new_matches:
                 await match_cog.create_new_match(match)
-
-            Queue.players_queued = set()
 
     @matchmake.before_loop
     async def before_matchmake(self):
@@ -65,7 +47,6 @@ class Queue(commands.Cog):
 
                 if self.in_queue:
                     await interaction.followup.send("Joined queue", ephemeral=True)
-                    Queue.process_joined_player(interaction.user.id)
                 else:
                     await interaction.followup.send("Left queue", ephemeral=True)
 

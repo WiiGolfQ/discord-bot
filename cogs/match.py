@@ -66,8 +66,6 @@ class Match(commands.Cog):
     async def forfeit(self, ctx):
         await ctx.defer()
 
-        discord_id = ctx.author.id
-
         # check if we are in a thread
         try:
             ctx.channel.parent

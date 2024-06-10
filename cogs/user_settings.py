@@ -81,6 +81,8 @@ class UserSettings(commands.Cog):
         required=False,
     )
     async def youtube(self, ctx, handle, url):
+        await ctx.defer(ephemeral=True)
+
         def extract_id_from_url(url):
             things_before_id = [
                 "youtube.com/watch?v=",
@@ -104,6 +106,8 @@ class UserSettings(commands.Cog):
             if url:
                 video_id = extract_id_from_url(url)
                 youtube["video_id"] = video_id
+            else:
+                youtube["video_id"] = None
 
             data = {
                 "discord_id": discord_id,
