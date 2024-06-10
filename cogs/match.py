@@ -14,7 +14,7 @@ from utils import are_you_sure, send_table, generate_agree_list
 class Match(commands.Cog):
     class ReportScoreModal(discord.ui.Modal):
         def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
+            super().__init__(title="Report score", *args, **kwargs)
             self.add_item(
                 discord.ui.InputText(label="Score", placeholder="Enter your score")
             )
@@ -24,7 +24,7 @@ class Match(commands.Cog):
 
     class ReportTimeModal(discord.ui.Modal):
         def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
+            super().__init__(title="Report time", *args, **kwargs)
             self.add_item(
                 discord.ui.InputText(
                     label="Debug info: start",
@@ -715,6 +715,10 @@ class Match(commands.Cog):
             i += match["players_per_team"]
 
         await send_table(thread, "Elo changes", rows=rows)
+
+    @commands.slash_command()
+    async def test_modal(self, ctx):
+        await ctx.send_modal(self.ReportTimeModal())
 
 
 def setup(bot):
