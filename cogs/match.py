@@ -13,8 +13,9 @@ from utils import are_you_sure, send_table, generate_agree_list
 
 class Match(commands.Cog):
     class ReportScoreModal(discord.ui.Modal):
-        def __init__(self, *args, **kwargs):
+        def __init__(self, cog, *args, **kwargs):
             super().__init__(title="Report score", *args, **kwargs)
+            self.cog = cog
             self.add_item(
                 discord.ui.InputText(label="Score", placeholder="Enter your score")
             )
@@ -23,8 +24,9 @@ class Match(commands.Cog):
             pass
 
     class ReportTimeModal(discord.ui.Modal):
-        def __init__(self, *args, **kwargs):
+        def __init__(self, cog, *args, **kwargs):
             super().__init__(title="Report time", *args, **kwargs)
+            self.cog = cog
             self.add_item(
                 discord.ui.InputText(
                     label="Debug info: start",
@@ -44,7 +46,17 @@ class Match(commands.Cog):
             )
 
         async def callback(self, interaction: discord.Interaction):
-            pass
+            start, end, fps = (child.value for child in self.children)
+
+            if not start or not end or not fps:
+                await interaction.response.send_message(
+                    "You must provide start, end, and fps", ephemeral=True
+                )
+                return
+
+            await Match.calculate_score(
+                self.cog, interaction, start=start, end=end, fps=fps
+            )
 
     def __init__(self, bot):
         self.bot = bot
@@ -243,7 +255,7 @@ class Match(commands.Cog):
                     all_players_live = False
 
         try:
-            res = requests.put(API_URL + f"/match/{thread.name}", json=match)
+            requests.put(API_URL + f"/match/{thread.name}", json=match)
         except Exception as e:
             await thread.send(f"Failed to update match videos: {e}")
             print(f"Exception in live_procedure: {e}")
@@ -294,28 +306,16 @@ class Match(commands.Cog):
             return
 
     @commands.slash_command()
-    @option(
-        "score", description="Your score (score matches only)", required=False, type=str
-    )
-    @option(
-        "start",
-        description="Your start debug info (speedrun matches only)",
-        required=False,
-        type=str,
-    )
-    @option(
-        "end",
-        description="Your end debug info (speedrun matches only)",
-        required=False,
-        type=str,
-    )
-    @option(
-        "fps",
-        description="Your video FPS (speedrun matches only)",
-        required=False,
-        type=int,
-    )
-    async def report(self, ctx, score, start, end, fps):
+    async def report(self, ctx):
+        # check if we're in a thread
+        try:
+            ctx.channel.parent
+        except Exception:
+            await ctx.respond(
+                "This command can only be used in a match thread", ephemeral=True
+            )
+            return
+
         match_id = int(ctx.channel.name)
         match = next(
             (m for m in self.bot.active_matches if m["match_id"] == match_id), None
@@ -328,25 +328,22 @@ class Match(commands.Cog):
             await ctx.respond("This match is not ongoing", ephemeral=True)
             return
 
-        # check if we're in a thread
-        try:
-            ctx.channel.parent
-        except Exception:
-            await ctx.respond(
-                "This command can only be used in a match thread", ephemeral=True
-            )
-            return
-
+        target_team = None
         target_tp = None
         # check if the user of the command is playing in the match
         # find the player amongst the teams
         for team in match.get("teams"):
             for tp in team.get("players"):
                 if tp["player"]["discord_id"] == ctx.author.id:
+                    target_team = team
                     target_tp = tp
                     break
         if target_tp is None:
             await ctx.respond("You are not playing in this match", ephemeral=True)
+            return
+
+        if target_team["forfeited"]:
+            await ctx.respond("You have forfeited", ephemeral=True)
             return
 
         # get the match's game
@@ -354,22 +351,35 @@ class Match(commands.Cog):
         game = next((g for g in self.bot.games if g["game_name"] == game_name), None)
 
         if game["speedrun"]:
-            if not start or not end or not fps:
-                await ctx.respond(
-                    "You must provide start, end, and fps", ephemeral=True
-                )
-                return
+            await ctx.send_modal(self.ReportTimeModal(self))
+        else:
+            await ctx.send_modal(self.ReportScoreModal(self))
 
-            if score:
-                await ctx.respond(
-                    "Don't provide a score for a speedrun match", ephemeral=True
+    async def calculate_score(
+        self, interaction, score=None, start=None, end=None, fps=None
+    ):
+        match_id = int(interaction.channel.name)
+        match = next(
+            (m for m in self.bot.active_matches if m["match_id"] == match_id), None
+        )
+
+        # get the match's game
+        game_name = match["game"]["game_name"]
+        game = next((g for g in self.bot.games if g["game_name"] == game_name), None)
+
+        if game["speedrun"]:
+            if not start or not end or not fps:
+                await interaction.response.send_message(
+                    "You must provide start, end, and fps", ephemeral=True
                 )
                 return
 
             fps = int(fps)
 
             if not (fps == 30 or fps == 60):
-                await ctx.respond("FPS must be 30 or 60", ephemeral=True)
+                await interaction.response.send_message(
+                    "FPS must be 30 or 60", ephemeral=True
+                )
                 return
 
             def get_ms_from_debug_info(debug_info):
@@ -390,7 +400,9 @@ class Match(commands.Cog):
                 start_ms = get_ms_from_debug_info(start)
                 end_ms = get_ms_from_debug_info(end)
             except Exception:
-                await ctx.respond("Invalid debug info", ephemeral=True)
+                await interaction.response.send_message(
+                    "Invalid debug info", ephemeral=True
+                )
                 return
 
             # find time between start and end
@@ -399,16 +411,18 @@ class Match(commands.Cog):
             # round to the start of the nearest frame
             score = int(score - (score % (1000 / fps)) + 0.5)
 
-            await ctx.respond(
+            await interaction.response.send_message(
                 f"The retime resulted in a time of {score}ms", ephemeral=True
             )
 
         else:  # score match
             if not score:
-                await ctx.respond("You must provide a score", ephemeral=True)
+                await interaction.response.send_message(
+                    "You must provide a score", ephemeral=True
+                )
                 return
             if start or end or fps:
-                await ctx.respond(
+                await interaction.response.send_message(
                     "Don't provide start, end, and fps for a score match",
                     ephemeral=True,
                 )
@@ -417,7 +431,7 @@ class Match(commands.Cog):
             sign, number = score[0], score[1:]
 
             if not number.isdigit():
-                await ctx.respond("Invalid score", ephemeral=True)
+                await interaction.response.send_message("Invalid score", ephemeral=True)
                 return
 
             if sign == "-":
@@ -427,27 +441,27 @@ class Match(commands.Cog):
             elif sign.isdigit():
                 score = int(score)
             else:
-                await ctx.respond("Invalid score", ephemeral=True)
+                await interaction.response.send_message("Invalid score", ephemeral=True)
                 return
 
-            await ctx.respond(f"Reporting a score of {score}...", ephemeral=True)
+            await interaction.response.send_message(
+                f"Reporting a score of {score}...", ephemeral=True
+            )
 
-        await self.report_score(match, target_tp, score)
+        await self.report_score(match, interaction.user.id, score)
 
-    async def report_score(self, match, tp, score):
+    async def report_score(self, match, tp_discord_id, score):
         thread = self.bot.get_channel(match["discord_thread_id"])
 
-        player = tp["player"]
-
         match_id = match["match_id"]
-        discord_id = player["discord_id"]
 
         try:
             # find the tp to change and change their score
             for team in match.get("teams"):
                 for tp in team.get("players"):
-                    if tp["player"]["discord_id"] == discord_id:
+                    if tp["player"]["discord_id"] == tp_discord_id:
                         tp["score"] = score
+                        username = tp["player"]["username"]
                         break
 
             # delete score info from every other player
@@ -462,7 +476,7 @@ class Match(commands.Cog):
                             if k == "pk"
                             or (
                                 k == "score"
-                                and tp["player"]["discord_id"] == discord_id
+                                and tp["player"]["discord_id"] == tp_discord_id
                             )
                         }
                         for tp in team["players"]
@@ -482,11 +496,11 @@ class Match(commands.Cog):
             # find the player's formatted score in the response
             for team in match["teams"]:
                 for tp in team.get("players"):
-                    if tp["player"]["discord_id"] == discord_id:
+                    if tp["player"]["discord_id"] == tp_discord_id:
                         score_formatted = tp["score_formatted"]
 
             await thread.send(
-                f"{player['username']} has reported a score of **{score_formatted}**."
+                f"{username} has reported a score of **{score_formatted}**."
             )
 
         except Exception as e:
@@ -508,7 +522,7 @@ class Match(commands.Cog):
                 m["agrees"] = generate_agree_list(m, False)
                 break
 
-        message = "## All players have reported scores.\n"
+        message = "## The match has finished.\n"
 
         message += "Use **/agree** to confirm the results. Use **/disagree** to dispute the results. Use **/report** again to resubmit your score."
 
@@ -715,10 +729,6 @@ class Match(commands.Cog):
             i += match["players_per_team"]
 
         await send_table(thread, "Elo changes", rows=rows)
-
-    @commands.slash_command()
-    async def test_modal(self, ctx):
-        await ctx.send_modal(self.ReportTimeModal())
 
 
 def setup(bot):
