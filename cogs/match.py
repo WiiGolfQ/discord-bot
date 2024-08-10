@@ -152,17 +152,17 @@ class Match(commands.Cog):
     async def create_new_match(self, match):
         channel = self.bot.get_channel(MATCH_CHANNEL_ID)
 
-        # get the tag for the game
+        # get the tag for the category
         tag = next(
             (
                 tag
                 for tag in channel.available_tags
-                if tag.name == match["game"]["shortcode"]
+                if tag.name == match["category"]["shortcode"]
             ),
             None,
         )
 
-        content = f"**{match['game']['game_name']}**\n\n__Teams__"
+        content = f"**{match['category']['category_name']}**\n\n__Teams__"
 
         for team in match.get("teams"):
             content += f"\n- {team.get('team_num')}: "  # bullet point
@@ -260,10 +260,12 @@ class Match(commands.Cog):
             print(f"Exception in live_procedure: {e}")
             return
 
-        game = next(
-            g for g in self.bot.games if g["game_id"] == match["game"]["game_id"]
+        category = next(
+            g
+            for g in self.bot.categories
+            if g["category_id"] == match["category"]["category_id"]
         )
-        require_all = game["require_all_livestreams"]
+        require_all = category["require_all_livestreams"]
 
         if all_players_live or (not require_all and one_player_live):
             await self.ongoing_procedure(match)
@@ -345,11 +347,14 @@ class Match(commands.Cog):
             await ctx.respond("You have forfeited", ephemeral=True)
             return
 
-        # get the match's game
-        game_name = match["game"]["game_name"]
-        game = next((g for g in self.bot.games if g["game_name"] == game_name), None)
+        # get the match's category
+        category_name = match["category"]["category_name"]
+        category = next(
+            (g for g in self.bot.categories if g["category_name"] == category_name),
+            None,
+        )
 
-        if game["speedrun"]:
+        if category["speedrun"]:
             await ctx.send_modal(self.ReportTimeModal(self))
         else:
             await ctx.send_modal(self.ReportScoreModal(self))
@@ -362,11 +367,14 @@ class Match(commands.Cog):
             (m for m in self.bot.active_matches if m["match_id"] == match_id), None
         )
 
-        # get the match's game
-        game_name = match["game"]["game_name"]
-        game = next((g for g in self.bot.games if g["game_name"] == game_name), None)
+        # get the match's category
+        category_name = match["category"]["category_name"]
+        category = next(
+            (g for g in self.bot.categories if g["category_name"] == category_name),
+            None,
+        )
 
-        if game["speedrun"]:
+        if category["speedrun"]:
             if not start or not end or not fps:
                 await interaction.response.send_message(
                     "You must provide start, end, and fps", ephemeral=True
