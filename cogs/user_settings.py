@@ -65,6 +65,7 @@ class QueueForView(View):
 
     def __init__(self, bot):
         self.bot = bot
+
         super().__init__()
 
         self.add_item(self.QueueForSelect(bot))
@@ -141,6 +142,10 @@ class UserSettings(commands.Cog):
 
     @discord.slash_command()
     async def queue_for(self, ctx):
+        if not self.bot.categories:
+            await ctx.respond("There are no categories", ephemeral=True)
+            return
+
         await ctx.respond(
             "Select the category you want to queue for",
             view=QueueForView(self.bot),
