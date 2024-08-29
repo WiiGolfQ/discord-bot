@@ -178,7 +178,7 @@ class Match(commands.Cog):
         thread = await channel.create_thread(
             name=match["match_id"],
             auto_archive_duration=1440,
-            applied_tags=[tag],
+            applied_tags=([tag] if tag else None),
             content=content,
         )
 
