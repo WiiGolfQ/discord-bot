@@ -2,9 +2,8 @@ import discord
 from discord.ext import commands
 from discord.ui import Select, View
 
-import requests
-
 from config import API_URL
+from utils import request
 
 
 class QueueForView(View):
@@ -47,7 +46,8 @@ class QueueForView(View):
                 queues_for.append(found["category_id"])
 
             try:
-                res = requests.patch(
+                res = request(
+                    "PATCH",
                     API_URL + f"/player/{interaction.user.id}",
                     json={"queues_for": queues_for},
                 )
@@ -121,7 +121,7 @@ class UserSettings(commands.Cog):
                 "youtube": youtube,
             }
 
-            res = requests.post(API_URL + f"/player/{discord_id}", json=data)
+            res = request("POST", API_URL + f"/player/{discord_id}", json=data)
 
             if not res.ok:
                 print(res.status_code)

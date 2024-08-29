@@ -2,13 +2,12 @@ import discord
 from discord.ext import commands
 from discord import option
 
-import requests
 from datetime import datetime, timezone
 
 from bs4 import BeautifulSoup
 
 from config import API_URL, MATCH_CHANNEL_ID
-from utils import are_you_sure, send_table, generate_agree_list
+from utils import are_you_sure, send_table, generate_agree_list, request
 
 
 class Match(commands.Cog):
@@ -117,7 +116,8 @@ class Match(commands.Cog):
                 ]
 
                 try:
-                    res = requests.patch(
+                    res = request(
+                        "PATCH",
                         API_URL + f"/match/{match['match_id']}",
                         json=data,
                     )
@@ -189,7 +189,8 @@ class Match(commands.Cog):
         self.bot.active_matches.append(match)
 
         try:
-            requests.put(
+            request(
+                "PUT",
                 API_URL + f"/match/{match['match_id']}",
                 json={
                     "discord_thread_id": thread.id,
@@ -217,7 +218,7 @@ class Match(commands.Cog):
         # update the match and replace it in active_matches
         match_id = int(ctx.channel.name)
         try:
-            replace = requests.get(API_URL + f"/match/{ctx.channel.name}").json()
+            replace = request("GET", API_URL + f"/match/{ctx.channel.name}").json()
         except Exception as e:
             await ctx.respond(f"Failed to get match: {e}", ephemeral=True)
             return
@@ -254,7 +255,7 @@ class Match(commands.Cog):
                     all_players_live = False
 
         try:
-            requests.put(API_URL + f"/match/{thread.name}", json=match)
+            request("PUT", API_URL + f"/match/{thread.name}", json=match)
         except Exception as e:
             await thread.send(f"Failed to update match videos: {e}")
             print(f"Exception in live_procedure: {e}")
@@ -287,7 +288,8 @@ class Match(commands.Cog):
         match["status"] = "Ongoing"
 
         try:
-            res = requests.put(
+            res = request(
+                "PUT",
                 API_URL + f"/match/{thread.name}",
                 json={
                     "status": "Ongoing",
@@ -492,7 +494,8 @@ class Match(commands.Cog):
                 for team in match["teams"]
             ]
 
-            res = requests.patch(
+            res = request(
+                "PATCH",
                 API_URL + f"/match/{match_id}",
                 json={"teams": teams_copy},
             )
@@ -540,7 +543,7 @@ class Match(commands.Cog):
     async def check_live(self, match, player):
         async def find_video_id_and_timestamp(url):
             try:
-                res = requests.get(url)
+                res = request("GET", url)
 
                 soup = BeautifulSoup(res.text, "html.parser")
 
@@ -656,7 +659,8 @@ class Match(commands.Cog):
         thread = channel.get_thread(match["discord_thread_id"])
         match_id = match["match_id"]
 
-        res = requests.put(
+        res = request(
+            "PUT",
             API_URL + f"/match/{match_id}",
             json={
                 "status": "Finished",

@@ -1,6 +1,28 @@
 import discord
 from discord import Embed
 
+import requests
+
+from config import DJANGO_AUTH_TOKEN
+
+
+def request(method, url, **kwargs):
+    session = requests.Session()
+    session.headers.update({"Authorization": f"Token {DJANGO_AUTH_TOKEN}"})
+
+    if kwargs.get("headers"):
+        session.headers.update(kwargs.get("headers"))
+
+    print(method, url)
+    print(session.headers)
+
+    res = session.request(method, url, **kwargs)
+
+    if not res.ok:
+        raise Exception(res.text)
+
+    return res
+
 
 class AreYouSureView(discord.ui.View):
     def __init__(self, user_id):

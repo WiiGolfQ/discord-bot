@@ -1,11 +1,8 @@
-from discord.ext import commands
+from discord.ext import commands, tasks
 import discord
 
-import requests
-
-from discord.ext import tasks
-
 from config import API_URL, QUEUE_CHANNEL_ID
+from utils import request
 
 
 class Queue(commands.Cog):
@@ -15,7 +12,7 @@ class Queue(commands.Cog):
 
     @tasks.loop(seconds=5)
     async def matchmake(self):
-        new_matches = requests.get(API_URL + "/matchmake/").json()
+        new_matches = request("GET", API_URL + "/matchmake").json()
         if new_matches:  # if new_matches is not empty
             # create new matches if we have any
             match_cog = self.bot.get_cog("Match")
@@ -37,7 +34,8 @@ class Queue(commands.Cog):
             await interaction.response.defer(ephemeral=True)
 
             try:
-                res = requests.patch(
+                res = request(
+                    "PATCH",
                     API_URL + f"/player/{interaction.user.id}",
                     json={"in_queue": self.in_queue},
                 )

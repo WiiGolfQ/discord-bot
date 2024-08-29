@@ -1,19 +1,17 @@
-import requests
-
 from discord.ext import commands
 
 from config import API_URL, DISCORD_BOT_TOKEN
 
-from utils import generate_agree_list
+from utils import request, generate_agree_list
 
 
 class WGQBot(commands.Bot):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.categories = requests.get(API_URL + "/category/").json()
-        self.active_matches = requests.get(
-            API_URL + "/match", params={"active": True}
+        self.categories = request("GET", API_URL + "/category").json()
+        self.active_matches = request(
+            "GET", API_URL + "/match", params={"active": True}
         ).json()
 
         for match in self.active_matches:

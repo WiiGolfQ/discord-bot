@@ -1,9 +1,7 @@
 from discord.ext import commands, tasks
 
-import requests
-
 from config import API_URL, LEADERBOARD_CHANNEL_ID
-from utils import send_table
+from utils import send_table, request
 
 
 class Leaderboard(commands.Cog):
@@ -22,15 +20,17 @@ class Leaderboard(commands.Cog):
 
         for category in self.bot.categories:
             try:
-                res = requests.get(API_URL + f"/leaderboard/{category['category_id']}")
+                res = request(
+                    "GET", API_URL + f"/leaderboard/{category['category_id']}"
+                )
 
                 if not res.ok:
                     raise Exception(res.text)
 
                 players_leaderboard = res.json()["results"]
 
-                res = requests.get(
-                    API_URL + f"/scores/{category['category_id']}?obsolete=true"
+                res = request(
+                    "GET", API_URL + f"/scores/{category['category_id']}?obsolete=true"
                 )
 
                 scores_leaderboard = res.json()["results"]
