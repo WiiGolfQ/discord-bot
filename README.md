@@ -1,4 +1,4 @@
-# WiiGolfQ/backend
+# WiiGolfQ/discord-bot
 
 This repository contains WiiGolfQ's [Discord bot](https://discord.com/developers/docs/intro). Users interact with the app through the Discord bot, which uses the REST API to communicate with the [backend](https://github.com/WiiGolfQ/backend). It is written in [Pycord](https://docs.pycord.dev/en/stable/).
 
