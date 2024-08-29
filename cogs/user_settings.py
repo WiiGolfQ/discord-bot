@@ -27,9 +27,9 @@ class QueueForView(View):
 
             names = self.values
 
-            if "NSS Score (9 Hole Random)" in names and len(names) > 1:
+            if "NSS Score (9 Holes Random)" in names and len(names) > 1:
                 await interaction.followup.send(
-                    "NSS Score (9 Hole Random) must be alone", ephemeral=True
+                    "NSS Score (9 Holes Random) must be alone", ephemeral=True
                 )
                 return
 
