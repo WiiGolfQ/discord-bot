@@ -13,9 +13,6 @@ def request(method, url, **kwargs):
     if kwargs.get("headers"):
         session.headers.update(kwargs.get("headers"))
 
-    print(method, url)
-    print(session.headers)
-
     res = session.request(method, url, **kwargs)
 
     if not res.ok:
