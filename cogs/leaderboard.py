@@ -20,22 +20,24 @@ class Leaderboard(commands.Cog):
 
         await channel.purge()
 
-        for game in self.bot.games:
+        for category in self.bot.categories:
             try:
-                res = requests.get(API_URL + f"/leaderboard/{game['game_id']}")
+                res = requests.get(API_URL + f"/leaderboard/{category['category_id']}")
 
                 if not res.ok:
                     raise Exception(res.text)
 
                 players_leaderboard = res.json()["results"]
 
-                res = requests.get(API_URL + f"/scores/{game['game_id']}?obsolete=true")
+                res = requests.get(
+                    API_URL + f"/scores/{category['category_id']}?obsolete=true"
+                )
 
                 scores_leaderboard = res.json()["results"]
 
                 await send_table(
                     channel,
-                    f"{game['game_name']} (players leaderboard)",
+                    f"{category['category_name']} (players leaderboard)",
                     [
                         ["__**Rank**__"]
                         + [str(item["rank"]) for item in players_leaderboard],
@@ -48,7 +50,7 @@ class Leaderboard(commands.Cog):
 
                 await send_table(
                     channel,
-                    f"{game['game_name']} (scores leaderboard)",
+                    f"{category['category_name']} (scores leaderboard)",
                     [
                         ["__**Rank**__"]
                         + [str(item["overall_rank"]) for item in scores_leaderboard],
@@ -61,7 +63,7 @@ class Leaderboard(commands.Cog):
 
             except Exception as e:
                 await channel.send(
-                    f"Failed to get leaderboard for {game['game_name']}: {e}"
+                    f"Failed to get leaderboard for {category['category_name']}: {e}"
                 )
 
 

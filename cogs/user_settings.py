@@ -15,10 +15,10 @@ class QueueForView(View):
             super().__init__(
                 placeholder="I want to play... (select 1 or more)",
                 min_values=1,
-                max_values=len(self.bot.games),
+                max_values=len(self.bot.categories),
                 options=[
-                    discord.SelectOption(label=game["game_name"])
-                    for game in self.bot.games
+                    discord.SelectOption(label=category["category_name"])
+                    for category in self.bot.categories
                 ],
             )
 
@@ -35,11 +35,16 @@ class QueueForView(View):
 
             queues_for = []
             for name in names:
-                # find the game in self.bot.games
+                # find the category in self.bot.categories
                 found = next(
-                    (game for game in self.bot.games if game["game_name"] == name), None
+                    (
+                        category
+                        for category in self.bot.categories
+                        if category["category_name"] == name
+                    ),
+                    None,
                 )
-                queues_for.append(found["game_id"])
+                queues_for.append(found["category_id"])
 
             try:
                 res = requests.patch(
@@ -55,11 +60,12 @@ class QueueForView(View):
                 )
             except Exception as e:
                 await interaction.followup.send(
-                    f"Failed to select games: {e}", ephemeral=True
+                    f"Failed to select categories: {e}", ephemeral=True
                 )
 
     def __init__(self, bot):
         self.bot = bot
+
         super().__init__()
 
         self.add_item(self.QueueForSelect(bot))
@@ -136,8 +142,12 @@ class UserSettings(commands.Cog):
 
     @discord.slash_command()
     async def queue_for(self, ctx):
+        if not self.bot.categories:
+            await ctx.respond("There are no categories", ephemeral=True)
+            return
+
         await ctx.respond(
-            "Select the game you want to queue for",
+            "Select the category you want to queue for",
             view=QueueForView(self.bot),
             ephemeral=True,
         )
