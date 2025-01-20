@@ -1,6 +1,5 @@
 import discord
 from discord.ext import commands
-from discord import option
 
 from datetime import datetime, timezone
 
@@ -36,7 +35,7 @@ class Match(commands.Cog):
             self.add_item(
                 discord.ui.InputText(
                     label="Debug info: end",
-                    placeholder="Enter debug info from the start frame",
+                    placeholder="Enter debug info from the end frame",
                 )
             )
             self.add_item(
@@ -240,19 +239,40 @@ class Match(commands.Cog):
     async def live_procedure(self, match):
         thread = self.bot.get_channel(match["discord_thread_id"])
 
-        one_player_live = False
-        all_players_live = True
+        category = next(
+            g
+            for g in self.bot.categories
+            if g["category_id"] == match["category"]["category_id"]
+        )
+
+        require = category["require_livestreams"]
+
+        if not require:
+            await self.ongoing_procedure(match)
+            return
+
+        # number = number of players needed to livestream, None = all players
+        minimum = category["minimum_livestreamers"]
+
+        livestreamers = 0
+        all_live = True
 
         for team in match["teams"]:
+            if livestreamers >= minimum:
+                break
             for tp in team["players"]:
                 video_id, timestamp = await self.check_live(match, tp.get("player"))
 
                 if video_id:
                     tp["video_id"] = video_id
                     tp["video_timestamp"] = timestamp
-                    one_player_live = True
-                else:
-                    all_players_live = False
+
+                    livestreamers += 1
+                    if livestreamers >= minimum:
+                        break
+                elif not minimum:
+                    all_live = False
+                    break
 
         try:
             request("PUT", API_URL + f"/match/{thread.name}", json=match)
@@ -261,22 +281,15 @@ class Match(commands.Cog):
             print(f"Exception in live_procedure: {e}")
             return
 
-        category = next(
-            g
-            for g in self.bot.categories
-            if g["category_id"] == match["category"]["category_id"]
-        )
-        require_all = category["require_all_livestreams"]
-
-        if all_players_live or (not require_all and one_player_live):
+        if (not minimum and all_live) or (minimum and livestreamers >= minimum):
             await self.ongoing_procedure(match)
         else:
             message = ""
 
-            if require_all:
-                message += "## Not all players are live."
+            if minimum:
+                message += f"{livestreamers}/{minimum} players are live."
             else:
-                message += "## No players are live."
+                message += "## Not all players are live."
 
             message += "\nUse **/live** to check again. Use **/youtube** to change your YouTube information."
 
@@ -529,7 +542,7 @@ class Match(commands.Cog):
         for m in self.bot.active_matches:
             if m["match_id"] == match_id:
                 m["status"] = "Waiting for agrees"
-                m["agrees"] = generate_agree_list(m, False)
+                m["agrees"] = generate_agree_list(m, True)
                 break
 
         message = "## The match has finished.\n"
