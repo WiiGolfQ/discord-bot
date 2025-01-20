@@ -10,6 +10,7 @@ class WGQBot(commands.Bot):
         super().__init__(*args, **kwargs)
 
         self.categories = request("GET", API_URL + "/category").json()
+
         self.active_matches = request(
             "GET", API_URL + "/match", params={"active": True}
         ).json()

@@ -18,26 +18,27 @@ class Leaderboard(commands.Cog):
 
         await channel.purge()
 
-        for category in self.bot.categories:
+        # elo leaderboard
+
+        games = {
+            (
+                category["game"]["game_id"],
+                category["game"]["game_name"],
+            )  # dicts are unhashable
+            for category in self.bot.categories
+        }
+        for game in games:
             try:
-                res = request(
-                    "GET", API_URL + f"/leaderboard/{category['category_id']}"
-                )
+                res = request("GET", API_URL + f"/leaderboard/{game[0]}")
 
                 if not res.ok:
                     raise Exception(res.text)
 
                 players_leaderboard = res.json()["results"]
 
-                res = request(
-                    "GET", API_URL + f"/scores/{category['category_id']}?obsolete=true"
-                )
-
-                scores_leaderboard = res.json()["results"]
-
                 await send_table(
                     channel,
-                    f"{category['category_name']} (players leaderboard)",
+                    f"{game[1]} elo leaderboard",
                     [
                         ["__**Rank**__"]
                         + [str(item["rank"]) for item in players_leaderboard],
@@ -47,10 +48,22 @@ class Leaderboard(commands.Cog):
                         + [str(item["mu"]) for item in players_leaderboard],
                     ],
                 )
+            except Exception as e:
+                await channel.send(f"Failed to get leaderboard for {game[1]}: {e}")
+
+        # score leaderboard
+
+        for category in self.bot.categories:
+            try:
+                res = request(
+                    "GET", API_URL + f"/scores/{category['category_id']}?obsolete=true"
+                )
+
+                scores_leaderboard = res.json()["results"]
 
                 await send_table(
                     channel,
-                    f"{category['category_name']} (scores leaderboard)",
+                    f"{category['game']['game_name']}: {category['category_name']} score leaderboard",
                     [
                         ["__**Rank**__"]
                         + [str(item["overall_rank"]) for item in scores_leaderboard],
